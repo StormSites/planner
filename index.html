@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Personal Planner | Local-First</title>
+    <title>Command Center | Local-First Planner</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/dexie/dist/dexie.js"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
@@ -11,540 +11,666 @@
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap');
         :root { --accent: #000000; }
-        body { font-family: 'Plus Jakarta Sans', sans-serif; background: #f8f9fa; }
+        body { font-family: 'Plus Jakarta Sans', sans-serif; background: #f8f9fa; color: #1a1a1a; }
         .sidebar-active { background: #f3f4f6; color: var(--accent); border-right: 3px solid var(--accent); }
         .widget-ghost { opacity: 0.4; background: #e5e7eb; }
+        
+        /* Dashboard Modes */
         .minimal-mode .widget-header { display: none; }
-        .minimal-mode .widget { border: none; box-shadow: none; background: transparent; padding: 0.5rem 0; }
+        .minimal-mode .widget { border: none; box-shadow: none; background: transparent; padding: 0.5rem 0; min-height: auto; }
+        .minimal-mode #widget-grid { grid-template-columns: 1fr !important; }
+        
+        .dynamic-mode .widget { order: var(--urgency, 0); }
+        
         .hide-scrollbar::-webkit-scrollbar { display: none; }
+        .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+        input[type="checkbox"] { border-radius: 6px; cursor: pointer; }
+        .btn-primary { background: black; color: white; transition: all 0.2s; }
+        .btn-primary:hover { background: #222; transform: translateY(-1px); }
+        .card { background: white; border: 1px border-slate-200; border-radius: 1rem; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
     </style>
 </head>
-<body class="text-slate-900">
+<body>
     <div id="app" class="flex h-screen overflow-hidden">
         <!-- Sidebar -->
-        <aside class="w-64 bg-white border-r flex flex-col shrink-0 flex-none overflow-y-auto hide-scrollbar">
+        <aside class="w-64 bg-white border-r flex flex-col shrink-0 overflow-y-auto hide-scrollbar">
             <div class="p-6">
                 <div class="flex items-center gap-2 mb-8">
-                    <div class="w-8 h-8 rounded bg-black flex items-center justify-center text-white">
-                        <i data-lucide="layers" class="w-5 h-5"></i>
+                    <div class="w-8 h-8 rounded-lg bg-black flex items-center justify-center text-white">
+                        <i data-lucide="layout-dashboard" class="w-5 h-5"></i>
                     </div>
                     <h1 class="font-bold text-xl tracking-tight">Planner</h1>
                 </div>
                 
                 <nav class="space-y-1">
-                    <button onclick="setView('dashboard')" id="nav-dashboard" class="w-full flex items-center gap-3 px-3 py-2 text-sm font-medium rounded-md transition-all">
+                    <button onclick="setView('dashboard')" id="nav-dashboard" class="w-full flex items-center gap-3 px-3 py-2 text-sm font-medium rounded-lg transition-all">
                         <i data-lucide="layout-grid" class="w-4 h-4"></i> Command Center
                     </button>
-                    <div class="pt-4 pb-2 px-3 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Organization</div>
-                    <button onclick="setView('tasks')" id="nav-tasks" class="w-full flex items-center gap-3 px-3 py-2 text-sm font-medium rounded-md text-slate-500 hover:bg-slate-50 transition-all">
+                    <div class="pt-4 pb-2 px-3 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Core</div>
+                    <button onclick="setView('tasks')" id="nav-tasks" class="w-full flex items-center gap-3 px-3 py-2 text-sm font-medium rounded-lg text-slate-500 hover:bg-slate-50 transition-all">
                         <i data-lucide="check-circle" class="w-4 h-4"></i> Tasks
                     </button>
-                    <button onclick="setView('projects')" id="nav-projects" class="w-full flex items-center gap-3 px-3 py-2 text-sm font-medium rounded-md text-slate-500 hover:bg-slate-50 transition-all">
-                        <i data-lucide="briefcase" class="w-4 h-4"></i> Projects
+                    <button onclick="setView('projects')" id="nav-projects" class="w-full flex items-center gap-3 px-3 py-2 text-sm font-medium rounded-lg text-slate-500 hover:bg-slate-50 transition-all">
+                        <i data-lucide="folder-kanban" class="w-4 h-4"></i> Projects
                     </button>
-                    <button onclick="setView('school')" id="nav-school" class="w-full flex items-center gap-3 px-3 py-2 text-sm font-medium rounded-md text-slate-500 hover:bg-slate-50 transition-all">
+                    <button onclick="setView('school')" id="nav-school" class="w-full flex items-center gap-3 px-3 py-2 text-sm font-medium rounded-lg text-slate-500 hover:bg-slate-50 transition-all">
                         <i data-lucide="graduation-cap" class="w-4 h-4"></i> School
                     </button>
-                    <button onclick="setView('extra')" id="nav-extra" class="w-full flex items-center gap-3 px-3 py-2 text-sm font-medium rounded-md text-slate-500 hover:bg-slate-50 transition-all">
-                        <i data-lucide="star" class="w-4 h-4"></i> Extracurriculars
-                    </button>
                     
-                    <div class="pt-4 pb-2 px-3 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Planning</div>
-                    <button onclick="setView('events')" id="nav-events" class="w-full flex items-center gap-3 px-3 py-2 text-sm font-medium rounded-md text-slate-500 hover:bg-slate-50 transition-all">
-                        <i data-lucide="calendar" class="w-4 h-4"></i> Events
-                    </button>
-                    <button onclick="setView('habits')" id="nav-habits" class="w-full flex items-center gap-3 px-3 py-2 text-sm font-medium rounded-md text-slate-500 hover:bg-slate-50 transition-all">
+                    <div class="pt-4 pb-2 px-3 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Personal</div>
+                    <button onclick="setView('habits')" id="nav-habits" class="w-full flex items-center gap-3 px-3 py-2 text-sm font-medium rounded-lg text-slate-500 hover:bg-slate-50 transition-all">
                         <i data-lucide="flame" class="w-4 h-4"></i> Habits
+                    </button>
+                    <button onclick="setView('events')" id="nav-events" class="w-full flex items-center gap-3 px-3 py-2 text-sm font-medium rounded-lg text-slate-500 hover:bg-slate-50 transition-all">
+                        <i data-lucide="calendar" class="w-4 h-4"></i> Schedule
+                    </button>
+                    <button onclick="setView('extra')" id="nav-extra" class="w-full flex items-center gap-3 px-3 py-2 text-sm font-medium rounded-lg text-slate-500 hover:bg-slate-50 transition-all">
+                        <i data-lucide="star" class="w-4 h-4"></i> Activities
                     </button>
                 </nav>
             </div>
 
-            <div class="mt-auto p-6 border-t">
-                <button onclick="setView('settings')" id="nav-settings" class="w-full flex items-center gap-3 px-3 py-2 text-sm font-medium rounded-md text-slate-500 hover:bg-slate-50 transition-all">
+            <div class="mt-auto p-4 border-t bg-slate-50/50">
+                <button onclick="setView('settings')" id="nav-settings" class="w-full flex items-center gap-3 px-3 py-2 text-sm font-medium rounded-lg text-slate-500 hover:bg-slate-50 transition-all">
                     <i data-lucide="settings" class="w-4 h-4"></i> Settings
                 </button>
+                <div id="sync-status" class="mt-2 px-3 text-[10px] text-slate-400 font-medium">Data stays on this device.</div>
             </div>
         </aside>
 
         <!-- Main Wrapper -->
         <main class="flex-1 flex flex-col min-w-0 overflow-hidden">
             <!-- Header -->
-            <header class="h-16 bg-white border-b px-8 flex items-center justify-between shrink-0">
+            <header class="h-16 bg-white border-b px-8 flex items-center justify-between shrink-0 z-20">
                 <div class="flex items-center gap-4">
-                    <h2 id="page-title" class="text-lg font-semibold capitalize">Command Center</h2>
-                    <div id="header-badges" class="flex gap-2"></div>
+                    <h2 id="page-title" class="text-lg font-bold text-slate-800">Command Center</h2>
                 </div>
-                <div class="flex items-center gap-3 text-sm">
-                    <div id="clock" class="font-medium text-slate-500 mr-4"></div>
-                    <button onclick="openGenericAdd()" class="bg-black text-white px-4 py-1.5 rounded-full font-medium hover:bg-slate-800 transition-all flex items-center gap-2">
-                        <i data-lucide="plus" class="w-4 h-4"></i> Quick Add
+                <div class="flex items-center gap-6">
+                    <div id="clock" class="text-xs font-bold text-slate-400 tracking-wider uppercase"></div>
+                    <button onclick="openQuickAdd()" class="btn-primary px-5 py-2 rounded-full text-xs font-bold flex items-center gap-2 shadow-lg shadow-black/10">
+                        <i data-lucide="plus" class="w-4 h-4"></i> New Entry
                     </button>
                 </div>
             </header>
 
             <!-- Scrollable Content -->
-            <div id="viewport" class="flex-1 overflow-y-auto p-8 scroll-smooth">
+            <div id="viewport" class="flex-1 overflow-y-auto p-8 scroll-smooth bg-slate-50">
                 <!-- Content Injected Here -->
             </div>
         </main>
     </div>
 
-    <!-- Universal Modal -->
-    <div id="modal-overlay" class="hidden fixed inset-0 bg-black/40 backdrop-blur-[2px] z-50 flex items-center justify-center p-4">
-        <div id="modal-card" class="bg-white rounded-2xl shadow-2xl max-w-lg w-full max-h-[90vh] overflow-y-auto">
-            <div class="p-6 border-b flex justify-between items-center">
-                <h3 id="modal-title" class="font-bold text-xl">Add Item</h3>
-                <button onclick="closeModal()" class="p-2 hover:bg-slate-100 rounded-lg"><i data-lucide="x" class="w-5 h-5"></i></button>
+    <!-- Modals -->
+    <div id="modal-overlay" class="hidden fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div id="modal-card" class="bg-white rounded-3xl shadow-2xl max-w-lg w-full max-h-[90vh] flex flex-col overflow-hidden">
+            <div class="p-6 border-b flex justify-between items-center bg-white sticky top-0">
+                <h3 id="modal-title" class="font-bold text-xl">Quick Add</h3>
+                <button onclick="closeModal()" class="p-2 hover:bg-slate-100 rounded-full transition-colors"><i data-lucide="x" class="w-5 h-5"></i></button>
             </div>
-            <div id="modal-body" class="p-6"></div>
+            <div id="modal-body" class="p-8 overflow-y-auto"></div>
         </div>
     </div>
 
     <script>
-        // --- 1. Database & Schema ---
-        const db = new Dexie("PersonalPlannerDB");
-        db.version(1).stores({
-            tasks: '++id, title, status, priority, dueDate, projectId, classId, isRecurring',
-            projects: '++id, name, status, deadline, progress',
-            school: '++id, className, instructor, semester',
-            assignments: '++id, title, classId, dueDate, status',
-            events: '++id, title, start, end, category',
-            habits: '++id, name, frequency, streak, lastLogged',
-            extra: '++id, name, role, schedule',
-            settings: 'key, value',
-            backups: '++id, timestamp',
-            rules: '++id, trigger, action'
+        // --- 1. Database Schema ---
+        const db = new Dexie("PlannerCompleteDB");
+        db.version(2).stores({
+            tasks: '++id, title, status, priority, dueDate, classId, projectId, isRecurring, tags',
+            projects: '++id, name, status, deadline, progress, goals',
+            school: '++id, className, instructor, schedule',
+            assignments: '++id, title, classId, dueDate, status, weight',
+            events: '++id, title, start, end, category, location',
+            habits: '++id, name, frequency, streak, logs, lastLogged',
+            extra: '++id, name, role, hours, day',
+            automations: '++id, name, trigger, action, enabled',
+            backups: '++id, timestamp'
         });
 
-        // --- 2. State & Defaults ---
+        // --- 2. State Management ---
         let currentView = 'dashboard';
-        let dashboardLayout = JSON.parse(localStorage.getItem('dashboard_layout')) || ['tasks', 'schedule', 'habits', 'projects', 'rules'];
-        let appSettings = {
-            theme: 'light',
-            dashboardMode: 'command', // command, minimal, dynamic
+        let dashboardLayout = JSON.parse(localStorage.getItem('planner_layout')) || ['tasks', 'events', 'habits', 'projects', 'school'];
+        let config = JSON.parse(localStorage.getItem('planner_config')) || {
+            dashboardMode: 'command',
             autoCarryover: true,
-            autoSort: true,
-            encryption: false
+            smartSort: true,
+            theme: 'light',
+            reminders: true
         };
 
-        // --- 3. UI Controller ---
-        const viewPort = document.getElementById('viewport');
-        const pageTitle = document.getElementById('page-title');
-
+        // --- 3. View Router ---
         async function setView(view) {
             currentView = view;
-            pageTitle.innerText = view.replace('extra', 'Extracurriculars').replace('dashboard', 'Command Center');
-            
-            // Sidebar UI update
             document.querySelectorAll('nav button, aside button').forEach(b => b.classList.remove('sidebar-active'));
-            const activeBtn = document.getElementById(`nav-${view}`);
-            if (activeBtn) activeBtn.classList.add('sidebar-active');
-
-            // Render logic
-            switch(view) {
-                case 'dashboard': renderDashboard(); break;
-                case 'tasks': renderTasks(); break;
-                case 'projects': renderProjects(); break;
-                case 'school': renderSchool(); break;
-                case 'habits': renderHabits(); break;
-                case 'events': renderEvents(); break;
-                case 'extra': renderExtra(); break;
-                case 'settings': renderSettings(); break;
-            }
+            const btn = document.getElementById(`nav-${view}`);
+            if(btn) btn.classList.add('sidebar-active');
+            document.getElementById('page-title').innerText = view.charAt(0).toUpperCase() + view.slice(1).replace('extra', 'Activities');
+            
+            await renderContent(view);
             lucide.createIcons();
             localStorage.setItem('last_view', view);
         }
 
-        // --- 4. Feature: DASHBOARD MODES ---
-        async function renderDashboard() {
-            const mode = appSettings.dashboardMode;
-            viewPort.className = `flex-1 overflow-y-auto p-8 scroll-smooth ${mode}-mode`;
+        async function renderContent(view) {
+            const vp = document.getElementById('viewport');
+            vp.className = `flex-1 overflow-y-auto p-8 scroll-smooth ${config.dashboardMode}-mode`;
             
-            viewPort.innerHTML = `
+            switch(view) {
+                case 'dashboard': await renderDashboard(vp); break;
+                case 'tasks': await renderTasks(vp); break;
+                case 'projects': await renderProjects(vp); break;
+                case 'school': await renderSchool(vp); break;
+                case 'habits': await renderHabits(vp); break;
+                case 'events': await renderEvents(vp); break;
+                case 'extra': await renderActivities(vp); break;
+                case 'settings': await renderSettings(vp); break;
+            }
+        }
+
+        // --- 4. Feature: DASHBOARD & WIDGETS ---
+        async function renderDashboard(vp) {
+            vp.innerHTML = `
                 <div id="widget-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    ${dashboardLayout.map(wId => generateWidgetMarkup(wId)).join('')}
-                </div>
-                <div class="mt-8 flex justify-center">
-                    <button onclick="resetLayout()" class="text-xs text-slate-400 hover:text-slate-600 font-medium">Reset Widget Layout</button>
+                    ${dashboardLayout.map(id => `
+                        <div data-id="${id}" class="widget card min-h-[320px] flex flex-col transition-all">
+                            <div class="widget-header px-6 py-4 border-b flex justify-between items-center cursor-move select-none">
+                                <h4 class="font-bold text-xs uppercase tracking-widest text-slate-400">${id}</h4>
+                                <i data-lucide="grip-horizontal" class="w-4 h-4 text-slate-300"></i>
+                            </div>
+                            <div id="widget-${id}" class="p-6 flex-1 overflow-y-auto hide-scrollbar"></div>
+                        </div>
+                    `).join('')}
                 </div>
             `;
             initSortable();
             await populateWidgets();
         }
 
-        function generateWidgetMarkup(id) {
-            const titles = { tasks: 'Daily Tasks', schedule: "Today's Events", habits: 'Habit Streaks', projects: 'Active Projects', rules: 'Active Automations' };
-            return `
-                <div data-id="${id}" class="widget bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden flex flex-col min-h-[300px]">
-                    <div class="widget-header px-5 py-4 border-b flex justify-between items-center cursor-move">
-                        <h4 class="font-bold text-slate-700 text-sm tracking-tight capitalize">${titles[id] || id}</h4>
-                        <div class="flex gap-1">
-                             <button class="p-1 hover:bg-slate-100 rounded opacity-50"><i data-lucide="more-horizontal" class="w-4 h-4"></i></button>
-                        </div>
-                    </div>
-                    <div id="widget-content-${id}" class="p-5 flex-1 text-sm overflow-y-auto hide-scrollbar">
-                        <div class="animate-pulse flex space-y-4 flex-col">
-                            <div class="h-4 bg-slate-100 rounded w-3/4"></div>
-                            <div class="h-4 bg-slate-100 rounded"></div>
-                        </div>
-                    </div>
-                </div>
-            `;
-        }
-
         async function populateWidgets() {
-            // Tasks Widget
-            const tasks = await db.tasks.limit(5).toArray();
-            document.getElementById('widget-content-tasks').innerHTML = tasks.length ? `
+            // Task Widget
+            const tasks = await db.tasks.where('status').equals('pending').limit(6).toArray();
+            document.getElementById('widget-tasks').innerHTML = tasks.length ? `
                 <div class="space-y-3">
                     ${tasks.map(t => `<div class="flex items-center gap-3">
-                        <input type="checkbox" ${t.status === 'done' ? 'checked' : ''} onchange="toggleTask(${t.id})" class="rounded-full w-4 h-4 border-slate-300 accent-black">
-                        <span class="${t.status === 'done' ? 'line-through text-slate-400' : 'text-slate-600'} font-medium">${t.title}</span>
+                        <input type="checkbox" onchange="toggleTask(${t.id})" class="w-5 h-5 accent-black">
+                        <span class="text-sm font-medium ${t.priority === '3' ? 'text-red-600' : ''}">${t.title}</span>
                     </div>`).join('')}
                 </div>
-            ` : `<p class="text-slate-400 italic">No tasks yet.</p>`;
+            ` : `<p class="text-slate-400 py-10 text-center text-sm">All clear! No pending tasks.</p>`;
 
-            // Habits Widget
-            const habits = await db.habits.toArray();
-            document.getElementById('widget-content-habits').innerHTML = habits.length ? `
-                <div class="space-y-4">
-                    ${habits.map(h => `
-                        <div>
-                            <div class="flex justify-between text-[11px] mb-1 font-bold text-slate-500 uppercase tracking-tighter">
-                                <span>${h.name}</span>
-                                <span class="text-orange-500">${h.streak}d Streak</span>
-                            </div>
-                            <div class="w-full bg-slate-100 h-1.5 rounded-full"><div class="bg-black h-full rounded-full" style="width: ${Math.min(h.streak * 10, 100)}%"></div></div>
-                        </div>
-                    `).join('')}
-                </div>
-            ` : `<p class="text-slate-400 italic">No habits tracking.</p>`;
-            
-            lucide.createIcons();
-        }
-
-        function initSortable() {
-            const el = document.getElementById('widget-grid');
-            Sortable.create(el, {
-                animation: 150,
-                ghostClass: 'widget-ghost',
-                handle: '.widget-header',
-                onEnd: () => {
-                    const newLayout = Array.from(el.children).map(c => c.getAttribute('data-id'));
-                    localStorage.setItem('dashboard_layout', JSON.stringify(newLayout));
-                    dashboardLayout = newLayout;
-                }
-            });
-        }
-
-        // --- 5. Feature: AUTOMATION SYSTEM ---
-        async function runAutomations() {
-            if (!appSettings.autoCarryover) return;
-            
+            // Event Widget
             const today = new Date().toISOString().split('T')[0];
-            const overdue = await db.tasks.where('dueDate').below(today).and(t => t.status !== 'done').toArray();
-            
-            for (let task of overdue) {
-                await db.tasks.update(task.id, { dueDate: today });
-                console.log(`Auto-carried over: ${task.title}`);
-            }
-            
-            // Specific Rule Logic: "If this then that"
-            const rules = await db.rules.toArray();
-            for (let rule of rules) {
-                // Simplified execution engine
-                if (rule.trigger === 'EVERY_MORNING') {
-                     // logic for recurring tasks could go here
-                }
-            }
-        }
-
-        // --- 6. Feature: SCHOOL & PROJECTS ---
-        async function renderSchool() {
-            const classes = await db.school.toArray();
-            viewPort.innerHTML = `
-                <div class="flex justify-between items-center mb-8">
-                    <div><h3 class="text-2xl font-bold">Academic Portal</h3><p class="text-slate-500">Classes and assignments.</p></div>
-                    <button onclick="addSchoolClass()" class="bg-black text-white px-4 py-2 rounded-xl text-sm font-bold">+ New Class</button>
-                </div>
-                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    ${classes.map(c => `
-                        <div class="bg-white p-6 rounded-2xl border border-slate-200">
-                            <div class="flex items-center gap-3 mb-4">
-                                <div class="w-10 h-10 bg-indigo-50 text-indigo-600 rounded-lg flex items-center justify-center font-bold">${c.className.charAt(0)}</div>
-                                <div><h4 class="font-bold">${c.className}</h4><p class="text-xs text-slate-400">${c.instructor}</p></div>
-                            </div>
-                            <button class="w-full py-2 bg-slate-50 text-xs font-bold rounded-lg border border-slate-100 hover:bg-slate-100 transition-all">Manage Assignments</button>
-                        </div>
-                    `).join('')}
-                </div>
-            `;
-        }
-
-        async function renderProjects() {
-            const projects = await db.projects.toArray();
-            viewPort.innerHTML = `
-                <div class="flex justify-between items-center mb-8">
-                    <div><h3 class="text-2xl font-bold">Projects</h3><p class="text-slate-500">Track milestones and goals.</p></div>
-                    <button onclick="addProject()" class="bg-black text-white px-4 py-2 rounded-xl text-sm font-bold">+ New Project</button>
-                </div>
+            const events = await db.events.where('start').startsWith(today).toArray();
+            document.getElementById('widget-events').innerHTML = events.length ? `
                 <div class="space-y-4">
-                    ${projects.map(p => `
-                        <div class="bg-white p-5 rounded-2xl border border-slate-200 flex items-center justify-between">
-                            <div class="flex items-center gap-4">
-                                <div class="w-2 h-10 bg-green-500 rounded-full"></div>
-                                <div><h4 class="font-bold text-lg">${p.name}</h4><p class="text-xs text-slate-400">Due ${p.deadline || 'No date'}</p></div>
-                            </div>
-                            <div class="flex items-center gap-8 text-right">
-                                <div><p class="text-[10px] font-bold text-slate-400 uppercase">Progress</p><p class="font-bold">${p.progress}%</p></div>
-                                <button onclick="db.projects.delete(${p.id}).then(renderProjects)" class="text-slate-300 hover:text-red-500"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
+                    ${events.map(e => `
+                        <div class="flex gap-4 items-start">
+                            <div class="text-[10px] font-bold text-slate-400 w-12 pt-1">${e.start.split('T')[1]}</div>
+                            <div class="flex-1 p-3 bg-slate-50 rounded-xl border-l-4 border-black">
+                                <p class="text-xs font-bold">${e.title}</p>
+                                <p class="text-[10px] text-slate-500">${e.location || 'No location'}</p>
                             </div>
                         </div>
                     `).join('')}
                 </div>
-            `;
+            ` : `<p class="text-slate-400 py-10 text-center text-sm italic">No events scheduled.</p>`;
+
+            // Habit Widget
+            const habits = await db.habits.toArray();
+            document.getElementById('widget-habits').innerHTML = habits.map(h => `
+                <div class="mb-4">
+                    <div class="flex justify-between text-xs font-bold mb-1">
+                        <span>${h.name}</span>
+                        <span class="text-orange-500">${h.streak}d streak</span>
+                    </div>
+                    <div class="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
+                        <div class="bg-black h-full" style="width: ${Math.min(h.streak * 10, 100)}%"></div>
+                    </div>
+                </div>
+            `).join('') || `<p class="text-slate-400 py-10 text-center text-sm">Track your first habit.</p>`;
+
+            // School Widget
+            const classes = await db.school.toArray();
+            document.getElementById('widget-school').innerHTML = classes.map(c => `
+                <div class="p-3 bg-indigo-50 border border-indigo-100 rounded-xl mb-2 flex items-center justify-between">
+                    <div class="font-bold text-xs text-indigo-900">${c.className}</div>
+                    <div class="text-[10px] font-medium text-indigo-600 uppercase tracking-tighter">${c.schedule}</div>
+                </div>
+            `).join('') || `<p class="text-slate-400 py-10 text-center text-sm">No classes added.</p>`;
+
+            // Project Widget
+            const projects = await db.projects.toArray();
+            document.getElementById('widget-projects').innerHTML = projects.map(p => `
+                <div class="mb-4 last:mb-0">
+                    <p class="text-xs font-bold mb-1">${p.name}</p>
+                    <div class="flex items-center gap-3">
+                        <div class="flex-1 h-1.5 bg-slate-100 rounded-full overflow-hidden"><div class="bg-green-500 h-full" style="width:${p.progress}%"></div></div>
+                        <span class="text-[10px] font-bold text-slate-400">${p.progress}%</span>
+                    </div>
+                </div>
+            `).join('') || `<p class="text-slate-400 py-10 text-center text-sm">No active projects.</p>`;
+            
             lucide.createIcons();
         }
 
-        // --- 7. Feature: SETTINGS (EXTENSIVE) ---
-        function renderSettings() {
-            viewPort.innerHTML = `
-                <div class="max-w-3xl">
-                    <div class="mb-10">
-                        <h3 class="text-2xl font-bold mb-1">Configuration</h3>
-                        <p class="text-slate-500">Personalize your planner experience.</p>
+        // --- 5. Feature: TASKS (CATEGORIES + SUBTASKS) ---
+        async function renderTasks(vp) {
+            const allTasks = await db.tasks.toArray();
+            const groups = { 'High Priority': [], 'Coming Up': [], 'Completed': [] };
+            
+            allTasks.forEach(t => {
+                if(t.status === 'done') groups['Completed'].push(t);
+                else if(t.priority === '3') groups['High Priority'].push(t);
+                else groups['Coming Up'].push(t);
+            });
+
+            vp.innerHTML = `
+                <div class="max-w-4xl mx-auto space-y-10">
+                    ${Object.entries(groups).map(([title, list]) => `
+                        <section>
+                            <h3 class="text-xs font-black uppercase tracking-[0.2em] text-slate-400 mb-4">${title}</h3>
+                            <div class="space-y-2">
+                                ${list.map(t => `
+                                    <div class="group card p-4 flex items-center justify-between hover:border-slate-400 transition-all">
+                                        <div class="flex items-center gap-4">
+                                            <input type="checkbox" onchange="toggleTask(${t.id})" ${t.status==='done'?'checked':''} class="w-5 h-5 accent-black">
+                                            <div>
+                                                <p class="font-bold text-sm ${t.status==='done'?'line-through text-slate-400':''}">${t.title}</p>
+                                                <div class="flex gap-3 text-[10px] font-bold text-slate-400 uppercase mt-1">
+                                                    <span><i data-lucide="calendar" class="w-3 h-3 inline mr-1"></i>${t.dueDate}</span>
+                                                    ${t.classId ? `<span class="text-indigo-500">#School</span>` : ''}
+                                                    ${t.projectId ? `<span class="text-green-500">#Project</span>` : ''}
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <button onclick="deleteData('tasks', ${t.id})" class="opacity-0 group-hover:opacity-100 p-2 text-red-400 hover:bg-red-50 rounded-lg transition-all"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
+                                    </div>
+                                `).join('') || '<p class="text-slate-400 text-sm italic py-4">Nothing here.</p>'}
+                            </div>
+                        </section>
+                    `).join('')}
+                </div>
+            `;
+        }
+
+        // --- 6. Feature: SCHOOL (CLASS MGMT + ASSIGNMENTS) ---
+        async function renderSchool(vp) {
+            const classes = await db.school.toArray();
+            const assignments = await db.assignments.toArray();
+
+            vp.innerHTML = `
+                <div class="max-w-5xl mx-auto">
+                    <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                        <div class="lg:col-span-2 space-y-8">
+                            <h3 class="text-xl font-bold">Current Assignments</h3>
+                            <div class="space-y-3">
+                                ${assignments.map(a => `
+                                    <div class="card p-5 flex justify-between items-center">
+                                        <div>
+                                            <p class="font-bold">${a.title}</p>
+                                            <p class="text-xs text-indigo-600 font-medium">Class ID: ${a.classId} • Weight: ${a.weight}%</p>
+                                        </div>
+                                        <div class="text-right">
+                                            <p class="text-xs font-bold text-slate-400 uppercase">Due ${a.dueDate}</p>
+                                            <button onclick="deleteData('assignments', ${a.id})" class="text-[10px] text-red-500 font-bold hover:underline">Remove</button>
+                                        </div>
+                                    </div>
+                                `).join('') || '<p class="text-slate-400 italic">No assignments tracked yet.</p>'}
+                            </div>
+                        </div>
+                        <div class="space-y-6">
+                            <h3 class="text-xl font-bold">Class Schedule</h3>
+                            ${classes.map(c => `
+                                <div class="bg-indigo-900 text-white p-5 rounded-3xl shadow-xl">
+                                    <p class="text-[10px] font-black uppercase opacity-60 tracking-widest mb-1">${c.schedule}</p>
+                                    <h4 class="text-lg font-bold">${c.className}</h4>
+                                    <p class="text-sm opacity-80 mt-2">${c.instructor}</p>
+                                    <div class="mt-4 pt-4 border-t border-white/10 flex justify-between">
+                                        <button onclick="deleteData('school', ${c.id})" class="text-[10px] font-bold opacity-40 hover:opacity-100 uppercase">Drop Class</button>
+                                        <button class="text-[10px] font-bold bg-white/20 px-3 py-1 rounded-full">Resources</button>
+                                    </div>
+                                </div>
+                            `).join('') || '<p class="text-slate-400 italic text-sm">Add your courses in the "+" menu.</p>'}
+                        </div>
                     </div>
+                </div>
+            `;
+        }
 
-                    <div class="bg-white rounded-3xl border border-slate-200 overflow-hidden divide-y">
-                        <div class="p-6">
-                            <h4 class="font-bold mb-4 flex items-center gap-2"><i data-lucide="monitor" class="w-4 h-4"></i> Layout & Display</h4>
-                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        // --- 7. Feature: PROJECTS (GOALS & MILESTONES) ---
+        async function renderProjects(vp) {
+            const projects = await db.projects.toArray();
+            vp.innerHTML = `
+                <div class="max-w-4xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-6">
+                    ${projects.map(p => `
+                        <div class="card p-6 flex flex-col h-full">
+                            <div class="flex justify-between mb-4">
+                                <h3 class="font-bold text-lg">${p.name}</h3>
+                                <span class="bg-green-100 text-green-700 text-[10px] font-black px-2 py-1 rounded uppercase tracking-tighter">${p.status}</span>
+                            </div>
+                            <p class="text-xs text-slate-500 mb-6 font-medium">Objective: ${p.goals || 'No core objective set.'}</p>
+                            <div class="mt-auto">
+                                <div class="flex justify-between text-[10px] font-bold text-slate-400 mb-1">
+                                    <span>MILESTONES</span>
+                                    <span>${p.progress}% Complete</span>
+                                </div>
+                                <div class="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
+                                    <div class="bg-black h-full transition-all duration-1000" style="width: ${p.progress}%"></div>
+                                </div>
+                                <div class="mt-6 flex gap-2">
+                                    <button onclick="updateProjectProgress(${p.id}, ${Math.min(p.progress+10, 100)})" class="flex-1 bg-slate-50 py-2 border rounded-xl text-[10px] font-bold hover:bg-slate-100">+10%</button>
+                                    <button onclick="deleteData('projects', ${p.id})" class="p-2 border rounded-xl text-red-500"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
+                                </div>
+                            </div>
+                        </div>
+                    `).join('') || '<div class="col-span-2 text-center py-20 text-slate-300 italic">No projects active. Use Quick Add.</div>'}
+                </div>
+            `;
+        }
+
+        // --- 8. Feature: EVENTS & EXTRACURRICULARS ---
+        async function renderEvents(vp) {
+            const events = await db.events.orderBy('start').toArray();
+            vp.innerHTML = `
+                <div class="max-w-4xl mx-auto space-y-4">
+                    <div class="flex items-center justify-between mb-8">
+                        <h3 class="text-2xl font-bold">Planned Schedule</h3>
+                        <div class="flex gap-2">
+                             <button class="p-2 bg-white border rounded-lg"><i data-lucide="chevron-left" class="w-4 h-4"></i></button>
+                             <button class="px-4 py-2 bg-white border rounded-lg text-xs font-bold uppercase">Today</button>
+                             <button class="p-2 bg-white border rounded-lg"><i data-lucide="chevron-right" class="w-4 h-4"></i></button>
+                        </div>
+                    </div>
+                    ${events.map(e => `
+                        <div class="card p-5 group flex items-center justify-between">
+                            <div class="flex items-center gap-6">
+                                <div class="text-center w-16">
+                                    <p class="text-xs font-black text-slate-400">${e.start.split('T')[0].split('-')[2]}</p>
+                                    <p class="text-[10px] font-bold text-slate-300 uppercase">${new Date(e.start).toLocaleString('default', { month: 'short' })}</p>
+                                </div>
+                                <div class="h-10 w-1 bg-black rounded-full"></div>
                                 <div>
-                                    <label class="block text-xs font-bold text-slate-400 uppercase mb-2">Dashboard Mode</label>
-                                    <select onchange="updateSetting('dashboardMode', this.value)" class="w-full p-2 bg-slate-50 border rounded-lg text-sm">
-                                        <option value="command" ${appSettings.dashboardMode === 'command'?'selected':''}>Command Center (Full)</option>
-                                        <option value="minimal" ${appSettings.dashboardMode === 'minimal'?'selected':''}>Minimalist (Ultra lean)</option>
-                                        <option value="dynamic" ${appSettings.dashboardMode === 'dynamic'?'selected':''}>Dynamic (Urgency focused)</option>
-                                    </select>
+                                    <h4 class="font-bold">${e.title}</h4>
+                                    <p class="text-xs text-slate-500 flex items-center gap-1"><i data-lucide="clock" class="w-3 h-3"></i> ${e.start.split('T')[1]} - ${e.end.split('T')[1]}</p>
                                 </div>
                             </div>
+                            <button onclick="deleteData('events', ${e.id})" class="opacity-0 group-hover:opacity-100 p-2 text-slate-300 hover:text-red-500 transition-all"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
                         </div>
+                    `).join('') || '<p class="text-center py-20 text-slate-400">Empty calendar.</p>'}
+                </div>
+            `;
+        }
 
-                        <div class="p-6">
-                            <h4 class="font-bold mb-4 flex items-center gap-2"><i data-lucide="cpu" class="w-4 h-4"></i> Automation</h4>
-                            <div class="space-y-4">
-                                <div class="flex items-center justify-between">
-                                    <div><p class="font-semibold text-sm">Auto-Carryover</p><p class="text-xs text-slate-500">Move yesterday's unfinished tasks to today automatically.</p></div>
-                                    <input type="checkbox" ${appSettings.autoCarryover?'checked':''} onchange="updateSetting('autoCarryover', this.checked)" class="w-5 h-5 accent-black">
+        async function renderActivities(vp) {
+            const activities = await db.extra.toArray();
+            vp.innerHTML = `
+                <div class="max-w-4xl mx-auto space-y-6">
+                    <div class="bg-yellow-400 p-8 rounded-[2rem] text-yellow-950 shadow-2xl shadow-yellow-400/20">
+                        <h3 class="text-3xl font-black mb-2 tracking-tight">Activities</h3>
+                        <p class="font-bold opacity-80 uppercase text-xs tracking-widest">Commitment tracking & schedules</p>
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        ${activities.map(a => `
+                            <div class="card p-6 border-l-8 border-yellow-400">
+                                <div class="flex justify-between items-start mb-4">
+                                    <div><h4 class="text-xl font-bold">${a.name}</h4><p class="text-xs font-bold text-slate-400 uppercase tracking-widest">${a.role}</p></div>
+                                    <i data-lucide="star" class="w-5 h-5 text-yellow-500"></i>
                                 </div>
-                                <div class="flex items-center justify-between">
-                                    <div><p class="font-semibold text-sm">Urgency Sorting</p><p class="text-xs text-slate-500">Rank tasks automatically based on deadline and priority.</p></div>
-                                    <input type="checkbox" ${appSettings.autoSort?'checked':''} onchange="updateSetting('autoSort', this.checked)" class="w-5 h-5 accent-black">
+                                <div class="flex items-center justify-between text-sm font-bold mt-8">
+                                    <div class="flex items-center gap-2 text-slate-600"><i data-lucide="clock" class="w-4 h-4"></i> ${a.hours}h / week</div>
+                                    <div class="px-3 py-1 bg-slate-100 rounded-full text-[10px] uppercase">${a.day || 'Everyday'}</div>
                                 </div>
+                                <button onclick="deleteData('extra', ${a.id})" class="mt-4 text-[10px] font-bold text-red-500 opacity-0 group-hover:opacity-100 transition-all">Remove</button>
                             </div>
-                        </div>
-
-                        <div class="p-6">
-                            <h4 class="font-bold mb-4 flex items-center gap-2"><i data-lucide="database" class="w-4 h-4"></i> Data & Portability</h4>
-                            <div class="flex flex-wrap gap-3">
-                                <button onclick="exportData()" class="bg-slate-100 hover:bg-slate-200 px-4 py-2 rounded-xl text-xs font-bold">Manual JSON Export</button>
-                                <button onclick="triggerImport()" class="bg-slate-100 hover:bg-slate-200 px-4 py-2 rounded-xl text-xs font-bold">Import Backup</button>
-                                <button onclick="factoryReset()" class="bg-red-50 text-red-600 hover:bg-red-100 px-4 py-2 rounded-xl text-xs font-bold">Wipe All Data</button>
-                            </div>
-                            <p class="mt-4 text-[10px] text-slate-400">Everything is stored in IndexedDB. No data leaves this device.</p>
-                        </div>
+                        `).join('') || '<div class="col-span-2 text-center py-20 text-slate-300 italic">No extracurriculars tracked.</div>'}
                     </div>
                 </div>
             `;
             lucide.createIcons();
         }
 
-        // --- 8. Core Logic: Add/Delete/Update ---
-        async function openGenericAdd() {
-            const types = ['Task', 'Project', 'Habit', 'Class', 'Event', 'Rule'];
-            openModal('Quick Add', `
-                <div class="grid grid-cols-2 gap-4">
+        // --- 9. Feature: SETTINGS (SEARCH + TOGGLES + BACKUP) ---
+        function renderSettings(vp) {
+            vp.innerHTML = `
+                <div class="max-w-2xl mx-auto space-y-12">
+                    <section>
+                        <h3 class="text-xs font-black text-slate-400 uppercase tracking-[0.3em] mb-6">User Experience</h3>
+                        <div class="card overflow-hidden divide-y">
+                            <div class="p-6 flex items-center justify-between">
+                                <div><p class="font-bold text-sm">Dashboard Mode</p><p class="text-xs text-slate-500">How would you like your command center?</p></div>
+                                <select onchange="updateConfig('dashboardMode', this.value)" class="bg-slate-50 border p-2 rounded-lg text-xs font-bold">
+                                    <option value="command" ${config.dashboardMode==='command'?'selected':''}>Command (Modular)</option>
+                                    <option value="minimal" ${config.dashboardMode==='minimal'?'selected':''}>Minimal (Lists)</option>
+                                    <option value="dynamic" ${config.dashboardMode==='dynamic'?'selected':''}>Dynamic (Urgency)</option>
+                                </select>
+                            </div>
+                            <div class="p-6 flex items-center justify-between">
+                                <div><p class="font-bold text-sm">Automated Carryover</p><p class="text-xs text-slate-500">Unfinished tasks move to the next day at midnight.</p></div>
+                                <button onclick="updateConfig('autoCarryover', !config.autoCarryover)" class="w-12 h-6 rounded-full transition-all relative ${config.autoCarryover?'bg-black':'bg-slate-200'}">
+                                    <div class="w-4 h-4 bg-white rounded-full absolute top-1 transition-all ${config.autoCarryover?'right-1':'left-1'}"></div>
+                                </button>
+                            </div>
+                        </div>
+                    </section>
+
+                    <section>
+                        <h3 class="text-xs font-black text-slate-400 uppercase tracking-[0.3em] mb-6">Data & Portability</h3>
+                        <div class="grid grid-cols-2 gap-4">
+                            <button onclick="exportData()" class="card p-6 text-left hover:bg-slate-50 transition-all">
+                                <i data-lucide="download" class="w-5 h-5 mb-3 text-slate-400"></i>
+                                <p class="font-bold text-sm">Export JSON</p>
+                                <p class="text-[10px] text-slate-500">Download a full device backup.</p>
+                            </button>
+                            <label class="card p-6 text-left hover:bg-slate-50 transition-all cursor-pointer">
+                                <input type="file" class="hidden" onchange="importData(event)">
+                                <i data-lucide="upload" class="w-5 h-5 mb-3 text-slate-400"></i>
+                                <p class="font-bold text-sm">Import Data</p>
+                                <p class="text-[10px] text-slate-500">Restore from local file.</p>
+                            </label>
+                            <button onclick="factoryReset()" class="card p-6 text-left border-red-100 hover:bg-red-50 group transition-all">
+                                <i data-lucide="alert-triangle" class="w-5 h-5 mb-3 text-red-400"></i>
+                                <p class="font-bold text-sm text-red-600">Wipe Database</p>
+                                <p class="text-[10px] text-red-400">Permanently delete all local data.</p>
+                            </button>
+                        </div>
+                    </section>
+                </div>
+            `;
+            lucide.createIcons();
+        }
+
+        // --- 10. Automation Logic ---
+        async function runAutomations() {
+            if(!config.autoCarryover) return;
+            const todayStr = new Date().toISOString().split('T')[0];
+            const overdue = await db.tasks.where('dueDate').below(todayStr).and(t => t.status !== 'done').toArray();
+            for(let t of overdue) {
+                await db.tasks.update(t.id, { dueDate: todayStr });
+            }
+        }
+
+        // --- 11. Helpers & Core CRUD ---
+        function openQuickAdd() {
+            const types = ['Task', 'Project', 'Habit', 'Class', 'Assignment', 'Event', 'Activity'];
+            openModal('Create New Entry', `
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
                     ${types.map(t => `<button onclick="renderSpecificForm('${t}')" class="p-4 border rounded-2xl hover:bg-slate-50 text-left transition-all">
-                        <p class="font-bold text-sm">${t}</p>
-                        <p class="text-[10px] text-slate-400 uppercase">Create new</p>
+                        <p class="font-bold text-xs uppercase tracking-tighter mb-1">${t}</p>
+                        <i data-lucide="plus" class="w-4 h-4 text-slate-400"></i>
                     </button>`).join('')}
                 </div>
             `);
         }
 
         function renderSpecificForm(type) {
-            let form = '';
+            let form = `<form id="quick-form" onsubmit="handleFormSubmit(event, '${type}')" class="space-y-4">`;
             switch(type) {
                 case 'Task':
-                    form = `
-                        <form onsubmit="handleAddTask(event)">
-                            <input name="title" placeholder="What needs to be done?" class="w-full p-4 bg-slate-50 border rounded-xl mb-4 outline-none focus:ring-2 focus:ring-black">
-                            <div class="grid grid-cols-2 gap-4 mb-4">
-                                <select name="priority" class="p-3 bg-slate-50 border rounded-xl text-sm">
-                                    <option value="1">Low Priority</option>
-                                    <option value="2" selected>Medium Priority</option>
-                                    <option value="3">High Priority</option>
-                                </select>
-                                <input type="date" name="dueDate" value="${new Date().toISOString().split('T')[0]}" class="p-3 bg-slate-50 border rounded-xl text-sm">
-                            </div>
-                            <button type="submit" class="w-full py-4 bg-black text-white font-bold rounded-xl">Save Task</button>
-                        </form>
-                    `;
+                    form += `
+                        <input name="title" required placeholder="What needs doing?" class="w-full p-4 bg-slate-50 rounded-2xl border-none outline-none ring-2 ring-transparent focus:ring-black">
+                        <div class="grid grid-cols-2 gap-4">
+                            <select name="priority" class="p-4 bg-slate-50 rounded-2xl border-none">
+                                <option value="1">Low Luck</option><option value="2" selected>Medium</option><option value="3">Urgent</option>
+                            </select>
+                            <input name="dueDate" type="date" value="${new Date().toISOString().split('T')[0]}" class="p-4 bg-slate-50 rounded-2xl border-none">
+                        </div>`;
+                    break;
+                case 'Project':
+                    form += `<input name="name" required placeholder="Project name" class="w-full p-4 bg-slate-50 rounded-2xl border-none">
+                             <textarea name="goals" placeholder="Core objective" class="w-full p-4 bg-slate-50 rounded-2xl border-none"></textarea>
+                             <input name="deadline" type="date" class="w-full p-4 bg-slate-50 rounded-2xl border-none">`;
+                    break;
+                case 'Class':
+                    form += `<input name="className" required placeholder="Subject name" class="w-full p-4 bg-slate-50 rounded-2xl border-none">
+                             <input name="instructor" placeholder="Professor" class="w-full p-4 bg-slate-50 rounded-2xl border-none">
+                             <input name="schedule" placeholder="MWF 10:00AM" class="w-full p-4 bg-slate-50 rounded-2xl border-none">`;
+                    break;
+                case 'Assignment':
+                    form += `<input name="title" required placeholder="Assignment title" class="w-full p-4 bg-slate-50 rounded-2xl border-none">
+                             <input name="classId" placeholder="Class Name/ID" class="w-full p-4 bg-slate-50 rounded-2xl border-none">
+                             <div class="grid grid-cols-2 gap-4">
+                               <input name="weight" type="number" placeholder="Weight %" class="p-4 bg-slate-50 rounded-2xl border-none">
+                               <input name="dueDate" type="date" class="p-4 bg-slate-50 rounded-2xl border-none">
+                             </div>`;
+                    break;
+                case 'Event':
+                    form += `<input name="title" required placeholder="Meeting / Event title" class="w-full p-4 bg-slate-50 rounded-2xl border-none">
+                             <div class="grid grid-cols-2 gap-2">
+                               <label class="text-[10px] font-bold text-slate-400">START</label><label class="text-[10px] font-bold text-slate-400">END</label>
+                               <input name="start" type="datetime-local" class="p-4 bg-slate-50 rounded-2xl border-none">
+                               <input name="end" type="datetime-local" class="p-4 bg-slate-50 rounded-2xl border-none">
+                             </div>`;
                     break;
                 case 'Habit':
-                    form = `
-                        <form onsubmit="handleAddHabit(event)">
-                            <input name="name" placeholder="Habit name (e.g. Meditate)" class="w-full p-4 bg-slate-50 border rounded-xl mb-4">
-                            <select name="freq" class="w-full p-3 bg-slate-50 border rounded-xl mb-4 text-sm">
-                                <option>Daily</option>
-                                <option>Mon/Wed/Fri</option>
-                                <option>Weekends</option>
-                            </select>
-                            <button type="submit" class="w-full py-4 bg-black text-white font-bold rounded-xl">Start Tracking</button>
-                        </form>
-                    `;
+                    form += `<input name="name" required placeholder="Habit name" class="w-full p-4 bg-slate-50 rounded-2xl border-none">
+                             <select name="frequency" class="w-full p-4 bg-slate-50 rounded-2xl border-none">
+                               <option>Daily</option><option>Weekly</option><option>M/W/F</option>
+                             </select>`;
                     break;
-                default: 
-                    form = `<p class="text-slate-500 py-10 text-center">Creating ${type} logic...</p>`;
+                case 'Activity':
+                    form += `<input name="name" required placeholder="Activity name" class="w-full p-4 bg-slate-50 rounded-2xl border-none">
+                             <input name="role" placeholder="Your role" class="w-full p-4 bg-slate-50 rounded-2xl border-none">
+                             <input name="hours" type="number" placeholder="Hours per week" class="w-full p-4 bg-slate-50 rounded-2xl border-none">`;
+                    break;
             }
+            form += `<button type="submit" class="w-full py-4 bg-black text-white font-bold rounded-2xl mt-4">Save Entry</button></form>`;
             document.getElementById('modal-body').innerHTML = form;
             document.getElementById('modal-title').innerText = `New ${type}`;
         }
 
-        async function handleAddTask(e) {
+        async function handleFormSubmit(e, type) {
             e.preventDefault();
             const fd = new FormData(e.target);
-            await db.tasks.add({
-                title: fd.get('title'),
-                priority: fd.get('priority'),
-                dueDate: fd.get('dueDate'),
-                status: 'pending',
-                createdAt: Date.now()
-            });
-            closeModal();
-            setView(currentView);
-        }
-
-        async function handleAddHabit(e) {
-            e.preventDefault();
-            const fd = new FormData(e.target);
-            await db.habits.add({
-                name: fd.get('name'),
-                frequency: fd.get('freq'),
-                streak: 0,
-                lastLogged: null
-            });
+            const data = Object.fromEntries(fd.entries());
+            
+            // Model specific data mapping
+            if(type === 'Task') { data.status = 'pending'; data.createdAt = Date.now(); await db.tasks.add(data); }
+            if(type === 'Project') { data.progress = 0; data.status = 'active'; await db.projects.add(data); }
+            if(type === 'Habit') { data.streak = 0; data.logs = []; await db.habits.add(data); }
+            if(type === 'Class') { await db.school.add(data); }
+            if(type === 'Assignment') { data.status = 'todo'; await db.assignments.add(data); }
+            if(type === 'Event') { await db.events.add(data); }
+            if(type === 'Activity') { await db.extra.add(data); }
+            
             closeModal();
             setView(currentView);
         }
 
         async function toggleTask(id) {
-            const t = await db.tasks.get(id);
-            await db.tasks.update(id, { status: t.status === 'done' ? 'pending' : 'done' });
-            if (currentView === 'dashboard') populateWidgets();
-            else setView(currentView);
+            const task = await db.tasks.get(id);
+            await db.tasks.update(id, { status: task.status === 'done' ? 'pending' : 'done' });
+            setView(currentView);
         }
 
-        // --- 9. Modal Helpers ---
+        async function updateProjectProgress(id, val) {
+            await db.projects.update(id, { progress: val });
+            setView(currentView);
+        }
+
+        async function deleteData(table, id) {
+            if(confirm('Permanently delete this item?')) {
+                await db[table].delete(id);
+                setView(currentView);
+            }
+        }
+
+        function updateConfig(key, val) {
+            config[key] = val;
+            localStorage.setItem('planner_config', JSON.stringify(config));
+            setView(currentView);
+        }
+
+        function initSortable() {
+            const el = document.getElementById('widget-grid');
+            if(!el) return;
+            Sortable.create(el, {
+                animation: 150, handle: '.widget-header', ghostClass: 'widget-ghost',
+                onEnd: () => {
+                    const newLayout = Array.from(el.children).map(c => c.getAttribute('data-id'));
+                    localStorage.setItem('planner_layout', JSON.stringify(newLayout));
+                    dashboardLayout = newLayout;
+                }
+            });
+        }
+
         function openModal(title, content) {
             document.getElementById('modal-title').innerText = title;
             document.getElementById('modal-body').innerHTML = content;
             document.getElementById('modal-overlay').classList.remove('hidden');
             lucide.createIcons();
         }
+
         function closeModal() { document.getElementById('modal-overlay').classList.add('hidden'); }
 
-        // --- 10. Data Utility ---
         async function exportData() {
             const data = {
-                tasks: await db.tasks.toArray(),
-                projects: await db.projects.toArray(),
-                habits: await db.habits.toArray(),
-                school: await db.school.toArray(),
-                events: await db.events.toArray(),
-                settings: appSettings
+                tasks: await db.tasks.toArray(), projects: await db.projects.toArray(),
+                habits: await db.habits.toArray(), school: await db.school.toArray(),
+                events: await db.events.toArray(), extra: await db.extra.toArray(),
+                assignments: await db.assignments.toArray(), config
             };
             const blob = new Blob([JSON.stringify(data)], { type: 'application/json' });
-            const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
-            a.href = url;
-            a.download = `planner_export_${new Date().toISOString().split('T')[0]}.json`;
+            a.href = URL.createObjectURL(blob);
+            a.download = `my_planner_${new Date().toISOString().split('T')[0]}.json`;
             a.click();
         }
 
-        function triggerImport() {
-            const input = document.createElement('input');
-            input.type = 'file';
-            input.onchange = async (e) => {
-                const file = e.target.files[0];
-                const reader = new FileReader();
-                reader.onload = async (res) => {
-                    const data = JSON.parse(res.target.result);
-                    await db.tasks.bulkPut(data.tasks || []);
-                    await db.habits.bulkPut(data.habits || []);
-                    alert('Data Imported Successfully');
-                    window.location.reload();
-                };
-                reader.readAsText(file);
+        function importData(e) {
+            const reader = new FileReader();
+            reader.onload = async (res) => {
+                const data = JSON.parse(res.target.result);
+                await db.tasks.bulkPut(data.tasks || []);
+                await db.projects.bulkPut(data.projects || []);
+                await db.habits.bulkPut(data.habits || []);
+                await db.school.bulkPut(data.school || []);
+                await db.events.bulkPut(data.events || []);
+                await db.extra.bulkPut(data.extra || []);
+                await db.assignments.bulkPut(data.assignments || []);
+                if(data.config) updateConfig('dashboardMode', data.config.dashboardMode);
+                window.location.reload();
             };
-            input.click();
+            reader.readAsText(e.target.files[0]);
         }
 
         function factoryReset() {
-            if (confirm("This will permanently delete ALL data on this device. Proceed?")) {
-                db.delete().then(() => {
-                    localStorage.clear();
-                    window.location.reload();
-                });
+            if(confirm("DANGER: This will delete everything. No undo.")) {
+                db.delete().then(() => { localStorage.clear(); window.location.reload(); });
             }
         }
 
-        function updateSetting(key, val) {
-            appSettings[key] = val;
-            localStorage.setItem('app_settings', JSON.stringify(appSettings));
-            setView(currentView);
-        }
-
-        // --- 11. Initialization ---
-        function updateClock() {
+        // --- 12. Init ---
+        setInterval(() => {
             const now = new Date();
-            document.getElementById('clock').innerText = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) + ' • ' + now.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-        }
+            document.getElementById('clock').innerText = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+        }, 1000);
 
         window.onload = async () => {
-            const savedSettings = localStorage.getItem('app_settings');
-            if (savedSettings) appSettings = JSON.parse(savedSettings);
-            
-            updateClock();
-            setInterval(updateClock, 10000);
-            
             await runAutomations();
-            
             const lastView = localStorage.getItem('last_view') || 'dashboard';
             setView(lastView);
             lucide.createIcons();
         };
-
-        // Extra View renders
-        async function renderTasks() { 
-            const list = await db.tasks.toArray();
-            viewPort.innerHTML = `<div class="bg-white rounded-3xl border divide-y overflow-hidden">${list.map(t => `<div class="p-4 flex gap-4"><input type="checkbox" onchange="toggleTask(${t.id})" ${t.status==='done'?'checked':''}><span>${t.title}</span></div>`).join('')}</div>`; 
-        }
-        function renderEvents() { viewPort.innerHTML = '<div class="text-center py-20 text-slate-400"><i data-lucide="calendar" class="w-12 h-12 mx-auto mb-4 opacity-20"></i><p>Calendar visualization logic...</p></div>'; lucide.createIcons(); }
-        function renderExtra() { viewPort.innerHTML = '<div class="text-center py-20 text-slate-400"><i data-lucide="star" class="w-12 h-12 mx-auto mb-4 opacity-20"></i><p>Extracurricular schedules and roles...</p></div>'; lucide.createIcons(); }
-        function renderHabits() { 
-            db.habits.toArray().then(habits => {
-                viewPort.innerHTML = `
-                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                        ${habits.map(h => `<div class="bg-white p-6 rounded-2xl border shadow-sm">
-                            <h4 class="font-bold">${h.name}</h4>
-                            <p class="text-3xl font-black mt-2">${h.streak}</p>
-                            <p class="text-xs text-slate-400 uppercase font-bold tracking-widest">Day Streak</p>
-                        </div>`).join('')}
-                    </div>
-                `;
-            });
-        }
     </script>
 </body>
 </html>
