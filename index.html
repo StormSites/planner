@@ -3,32 +3,30 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Command Center | Local-First Planner</title>
+    <title>Command Center | Privacy Planner</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/dexie/dist/dexie.js"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
     <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap');
-        :root { --accent: #000000; }
         body { font-family: 'Plus Jakarta Sans', sans-serif; background: #f8f9fa; color: #1a1a1a; }
-        .sidebar-active { background: #f3f4f6; color: var(--accent); border-right: 3px solid var(--accent); }
+        .sidebar-active { background: #f3f4f6; color: #000; border-right: 3px solid #000; }
         .widget-ghost { opacity: 0.4; background: #e5e7eb; }
-        
-        /* Dashboard Modes */
-        .minimal-mode .widget-header { display: none; }
-        .minimal-mode .widget { border: none; box-shadow: none; background: transparent; padding: 0.5rem 0; min-height: auto; }
-        .minimal-mode #widget-grid { grid-template-columns: 1fr !important; }
-        
-        .dynamic-mode .widget { order: var(--urgency, 0); }
-        
         .hide-scrollbar::-webkit-scrollbar { display: none; }
         .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
-
-        input[type="checkbox"] { border-radius: 6px; cursor: pointer; }
+        
+        /* Calendar Styles */
+        .calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); border-top: 1px solid #e2e8f0; border-left: 1px solid #e2e8f0; }
+        .calendar-day { min-height: 120px; padding: 0.5rem; border-right: 1px solid #e2e8f0; border-bottom: 1px solid #e2e8f0; background: white; }
+        .calendar-day-header { background: #f1f5f9; padding: 0.5rem; border-right: 1px solid #e2e8f0; border-bottom: 1px solid #e2e8f0; text-align: center; font-size: 0.75rem; font-weight: 700; color: #64748b; text-transform: uppercase; }
+        .today { background: #f8fafc; }
+        .today .day-num { background: black; color: white; border-radius: 999px; width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; }
+        .other-month { color: #cbd5e1; background: #fcfdfe; }
+        
+        .card { background: white; border: 1px solid #e2e8f0; border-radius: 1rem; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
         .btn-primary { background: black; color: white; transition: all 0.2s; }
         .btn-primary:hover { background: #222; transform: translateY(-1px); }
-        .card { background: white; border: 1px border-slate-200; border-radius: 1rem; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
     </style>
 </head>
 <body>
@@ -38,36 +36,13 @@
             <div class="p-6">
                 <div class="flex items-center gap-2 mb-8">
                     <div class="w-8 h-8 rounded-lg bg-black flex items-center justify-center text-white">
-                        <i data-lucide="layout-dashboard" class="w-5 h-5"></i>
+                        <i data-lucide="shield-check" class="w-5 h-5"></i>
                     </div>
                     <h1 class="font-bold text-xl tracking-tight">Planner</h1>
                 </div>
                 
-                <nav class="space-y-1">
-                    <button onclick="setView('dashboard')" id="nav-dashboard" class="w-full flex items-center gap-3 px-3 py-2 text-sm font-medium rounded-lg transition-all">
-                        <i data-lucide="layout-grid" class="w-4 h-4"></i> Command Center
-                    </button>
-                    <div class="pt-4 pb-2 px-3 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Core</div>
-                    <button onclick="setView('tasks')" id="nav-tasks" class="w-full flex items-center gap-3 px-3 py-2 text-sm font-medium rounded-lg text-slate-500 hover:bg-slate-50 transition-all">
-                        <i data-lucide="check-circle" class="w-4 h-4"></i> Tasks
-                    </button>
-                    <button onclick="setView('projects')" id="nav-projects" class="w-full flex items-center gap-3 px-3 py-2 text-sm font-medium rounded-lg text-slate-500 hover:bg-slate-50 transition-all">
-                        <i data-lucide="folder-kanban" class="w-4 h-4"></i> Projects
-                    </button>
-                    <button onclick="setView('school')" id="nav-school" class="w-full flex items-center gap-3 px-3 py-2 text-sm font-medium rounded-lg text-slate-500 hover:bg-slate-50 transition-all">
-                        <i data-lucide="graduation-cap" class="w-4 h-4"></i> School
-                    </button>
-                    
-                    <div class="pt-4 pb-2 px-3 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Personal</div>
-                    <button onclick="setView('habits')" id="nav-habits" class="w-full flex items-center gap-3 px-3 py-2 text-sm font-medium rounded-lg text-slate-500 hover:bg-slate-50 transition-all">
-                        <i data-lucide="flame" class="w-4 h-4"></i> Habits
-                    </button>
-                    <button onclick="setView('events')" id="nav-events" class="w-full flex items-center gap-3 px-3 py-2 text-sm font-medium rounded-lg text-slate-500 hover:bg-slate-50 transition-all">
-                        <i data-lucide="calendar" class="w-4 h-4"></i> Schedule
-                    </button>
-                    <button onclick="setView('extra')" id="nav-extra" class="w-full flex items-center gap-3 px-3 py-2 text-sm font-medium rounded-lg text-slate-500 hover:bg-slate-50 transition-all">
-                        <i data-lucide="star" class="w-4 h-4"></i> Activities
-                    </button>
+                <nav id="sidebar-nav" class="space-y-1">
+                    <!-- Nav items injected based on enabled features -->
                 </nav>
             </div>
 
@@ -75,28 +50,25 @@
                 <button onclick="setView('settings')" id="nav-settings" class="w-full flex items-center gap-3 px-3 py-2 text-sm font-medium rounded-lg text-slate-500 hover:bg-slate-50 transition-all">
                     <i data-lucide="settings" class="w-4 h-4"></i> Settings
                 </button>
-                <div id="sync-status" class="mt-2 px-3 text-[10px] text-slate-400 font-medium">Data stays on this device.</div>
             </div>
         </aside>
 
         <!-- Main Wrapper -->
         <main class="flex-1 flex flex-col min-w-0 overflow-hidden">
-            <!-- Header -->
             <header class="h-16 bg-white border-b px-8 flex items-center justify-between shrink-0 z-20">
                 <div class="flex items-center gap-4">
                     <h2 id="page-title" class="text-lg font-bold text-slate-800">Command Center</h2>
                 </div>
                 <div class="flex items-center gap-6">
-                    <div id="clock" class="text-xs font-bold text-slate-400 tracking-wider uppercase"></div>
+                    <div id="clock" class="text-xs font-bold text-slate-400 tracking-wider"></div>
                     <button onclick="openQuickAdd()" class="btn-primary px-5 py-2 rounded-full text-xs font-bold flex items-center gap-2 shadow-lg shadow-black/10">
-                        <i data-lucide="plus" class="w-4 h-4"></i> New Entry
+                        <i data-lucide="plus" class="w-4 h-4"></i> Quick Add
                     </button>
                 </div>
             </header>
 
-            <!-- Scrollable Content -->
             <div id="viewport" class="flex-1 overflow-y-auto p-8 scroll-smooth bg-slate-50">
-                <!-- Content Injected Here -->
+                <!-- Content -->
             </div>
         </main>
     </div>
@@ -113,47 +85,55 @@
     </div>
 
     <script>
-        // --- 1. Database Schema ---
-        const db = new Dexie("PlannerCompleteDB");
-        db.version(2).stores({
-            tasks: '++id, title, status, priority, dueDate, classId, projectId, isRecurring, tags',
-            projects: '++id, name, status, deadline, progress, goals',
-            school: '++id, className, instructor, schedule',
-            assignments: '++id, title, classId, dueDate, status, weight',
-            events: '++id, title, start, end, category, location',
-            habits: '++id, name, frequency, streak, logs, lastLogged',
-            extra: '++id, name, role, hours, day',
-            automations: '++id, name, trigger, action, enabled',
-            backups: '++id, timestamp'
+        // --- Database ---
+        const db = new Dexie("PlannerProDB");
+        db.version(1).stores({
+            tasks: '++id, title, status, priority, dueDate, classId, projectId',
+            projects: '++id, name, status, deadline, progress',
+            school: '++id, className, schedule',
+            assignments: '++id, title, classId, dueDate, status',
+            events: '++id, title, start, end, category',
+            habits: '++id, name, streak, logs',
+            extra: '++id, name, role',
+            settings: 'key, value'
         });
 
-        // --- 2. State Management ---
+        // --- Auth/State ---
         let currentView = 'dashboard';
-        let dashboardLayout = JSON.parse(localStorage.getItem('planner_layout')) || ['tasks', 'events', 'habits', 'projects', 'school'];
+        let calendarDate = new Date();
         let config = JSON.parse(localStorage.getItem('planner_config')) || {
+            enabledFeatures: {
+                tasks: true,
+                projects: true,
+                school: true,
+                habits: true,
+                events: true,
+                extra: true
+            },
             dashboardMode: 'command',
-            autoCarryover: true,
-            smartSort: true,
-            theme: 'light',
-            reminders: true
+            autoCarryover: true
         };
 
-        // --- 3. View Router ---
+        const featureMeta = {
+            tasks: { label: 'Tasks', icon: 'check-circle' },
+            projects: { label: 'Projects', icon: 'folder-kanban' },
+            school: { label: 'School', icon: 'graduation-cap' },
+            habits: { label: 'Habits', icon: 'flame' },
+            events: { label: 'Schedule', icon: 'calendar' },
+            extra: { label: 'Activities', icon: 'star' }
+        };
+
+        // --- Rendering Engine ---
         async function setView(view) {
             currentView = view;
-            document.querySelectorAll('nav button, aside button').forEach(b => b.classList.remove('sidebar-active'));
-            const btn = document.getElementById(`nav-${view}`);
-            if(btn) btn.classList.add('sidebar-active');
-            document.getElementById('page-title').innerText = view.charAt(0).toUpperCase() + view.slice(1).replace('extra', 'Activities');
-            
-            await renderContent(view);
-            lucide.createIcons();
             localStorage.setItem('last_view', view);
-        }
-
-        async function renderContent(view) {
+            updateSidebar();
+            
             const vp = document.getElementById('viewport');
-            vp.className = `flex-1 overflow-y-auto p-8 scroll-smooth ${config.dashboardMode}-mode`;
+            const title = document.getElementById('page-title');
+            title.innerText = view === 'dashboard' ? 'Command Center' : view.charAt(0).toUpperCase() + view.slice(1);
+            
+            vp.innerHTML = '<div class="flex items-center justify-center h-full"><div class="animate-spin rounded-full h-8 w-8 border-b-2 border-black"></div></div>';
             
             switch(view) {
                 case 'dashboard': await renderDashboard(vp); break;
@@ -162,316 +142,176 @@
                 case 'school': await renderSchool(vp); break;
                 case 'habits': await renderHabits(vp); break;
                 case 'events': await renderEvents(vp); break;
-                case 'extra': await renderActivities(vp); break;
-                case 'settings': await renderSettings(vp); break;
+                case 'extra': await renderExtra(vp); break;
+                case 'settings': renderSettings(vp); break;
             }
-        }
-
-        // --- 4. Feature: DASHBOARD & WIDGETS ---
-        async function renderDashboard(vp) {
-            vp.innerHTML = `
-                <div id="widget-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    ${dashboardLayout.map(id => `
-                        <div data-id="${id}" class="widget card min-h-[320px] flex flex-col transition-all">
-                            <div class="widget-header px-6 py-4 border-b flex justify-between items-center cursor-move select-none">
-                                <h4 class="font-bold text-xs uppercase tracking-widest text-slate-400">${id}</h4>
-                                <i data-lucide="grip-horizontal" class="w-4 h-4 text-slate-300"></i>
-                            </div>
-                            <div id="widget-${id}" class="p-6 flex-1 overflow-y-auto hide-scrollbar"></div>
-                        </div>
-                    `).join('')}
-                </div>
-            `;
-            initSortable();
-            await populateWidgets();
-        }
-
-        async function populateWidgets() {
-            // Task Widget
-            const tasks = await db.tasks.where('status').equals('pending').limit(6).toArray();
-            document.getElementById('widget-tasks').innerHTML = tasks.length ? `
-                <div class="space-y-3">
-                    ${tasks.map(t => `<div class="flex items-center gap-3">
-                        <input type="checkbox" onchange="toggleTask(${t.id})" class="w-5 h-5 accent-black">
-                        <span class="text-sm font-medium ${t.priority === '3' ? 'text-red-600' : ''}">${t.title}</span>
-                    </div>`).join('')}
-                </div>
-            ` : `<p class="text-slate-400 py-10 text-center text-sm">All clear! No pending tasks.</p>`;
-
-            // Event Widget
-            const today = new Date().toISOString().split('T')[0];
-            const events = await db.events.where('start').startsWith(today).toArray();
-            document.getElementById('widget-events').innerHTML = events.length ? `
-                <div class="space-y-4">
-                    ${events.map(e => `
-                        <div class="flex gap-4 items-start">
-                            <div class="text-[10px] font-bold text-slate-400 w-12 pt-1">${e.start.split('T')[1]}</div>
-                            <div class="flex-1 p-3 bg-slate-50 rounded-xl border-l-4 border-black">
-                                <p class="text-xs font-bold">${e.title}</p>
-                                <p class="text-[10px] text-slate-500">${e.location || 'No location'}</p>
-                            </div>
-                        </div>
-                    `).join('')}
-                </div>
-            ` : `<p class="text-slate-400 py-10 text-center text-sm italic">No events scheduled.</p>`;
-
-            // Habit Widget
-            const habits = await db.habits.toArray();
-            document.getElementById('widget-habits').innerHTML = habits.map(h => `
-                <div class="mb-4">
-                    <div class="flex justify-between text-xs font-bold mb-1">
-                        <span>${h.name}</span>
-                        <span class="text-orange-500">${h.streak}d streak</span>
-                    </div>
-                    <div class="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
-                        <div class="bg-black h-full" style="width: ${Math.min(h.streak * 10, 100)}%"></div>
-                    </div>
-                </div>
-            `).join('') || `<p class="text-slate-400 py-10 text-center text-sm">Track your first habit.</p>`;
-
-            // School Widget
-            const classes = await db.school.toArray();
-            document.getElementById('widget-school').innerHTML = classes.map(c => `
-                <div class="p-3 bg-indigo-50 border border-indigo-100 rounded-xl mb-2 flex items-center justify-between">
-                    <div class="font-bold text-xs text-indigo-900">${c.className}</div>
-                    <div class="text-[10px] font-medium text-indigo-600 uppercase tracking-tighter">${c.schedule}</div>
-                </div>
-            `).join('') || `<p class="text-slate-400 py-10 text-center text-sm">No classes added.</p>`;
-
-            // Project Widget
-            const projects = await db.projects.toArray();
-            document.getElementById('widget-projects').innerHTML = projects.map(p => `
-                <div class="mb-4 last:mb-0">
-                    <p class="text-xs font-bold mb-1">${p.name}</p>
-                    <div class="flex items-center gap-3">
-                        <div class="flex-1 h-1.5 bg-slate-100 rounded-full overflow-hidden"><div class="bg-green-500 h-full" style="width:${p.progress}%"></div></div>
-                        <span class="text-[10px] font-bold text-slate-400">${p.progress}%</span>
-                    </div>
-                </div>
-            `).join('') || `<p class="text-slate-400 py-10 text-center text-sm">No active projects.</p>`;
-            
             lucide.createIcons();
         }
 
-        // --- 5. Feature: TASKS (CATEGORIES + SUBTASKS) ---
-        async function renderTasks(vp) {
-            const allTasks = await db.tasks.toArray();
-            const groups = { 'High Priority': [], 'Coming Up': [], 'Completed': [] };
+        function updateSidebar() {
+            const nav = document.getElementById('sidebar-nav');
+            let html = `
+                <button onclick="setView('dashboard')" id="nav-dashboard" class="w-full flex items-center gap-3 px-3 py-2 text-sm font-medium rounded-lg transition-all ${currentView==='dashboard'?'sidebar-active':''}">
+                    <i data-lucide="layout-grid" class="w-4 h-4"></i> Command Center
+                </button>
+                <div class="pt-4 pb-2 px-3 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Modules</div>
+            `;
             
-            allTasks.forEach(t => {
-                if(t.status === 'done') groups['Completed'].push(t);
-                else if(t.priority === '3') groups['High Priority'].push(t);
-                else groups['Coming Up'].push(t);
+            Object.keys(config.enabledFeatures).forEach(key => {
+                if(config.enabledFeatures[key]) {
+                    const meta = featureMeta[key];
+                    html += `
+                        <button onclick="setView('${key}')" id="nav-${key}" class="w-full flex items-center gap-3 px-3 py-2 text-sm font-medium rounded-lg text-slate-500 hover:bg-slate-50 transition-all ${currentView===key?'sidebar-active':''}">
+                            <i data-lucide="${meta.icon}" class="w-4 h-4"></i> ${meta.label}
+                        </button>
+                    `;
+                }
             });
-
-            vp.innerHTML = `
-                <div class="max-w-4xl mx-auto space-y-10">
-                    ${Object.entries(groups).map(([title, list]) => `
-                        <section>
-                            <h3 class="text-xs font-black uppercase tracking-[0.2em] text-slate-400 mb-4">${title}</h3>
-                            <div class="space-y-2">
-                                ${list.map(t => `
-                                    <div class="group card p-4 flex items-center justify-between hover:border-slate-400 transition-all">
-                                        <div class="flex items-center gap-4">
-                                            <input type="checkbox" onchange="toggleTask(${t.id})" ${t.status==='done'?'checked':''} class="w-5 h-5 accent-black">
-                                            <div>
-                                                <p class="font-bold text-sm ${t.status==='done'?'line-through text-slate-400':''}">${t.title}</p>
-                                                <div class="flex gap-3 text-[10px] font-bold text-slate-400 uppercase mt-1">
-                                                    <span><i data-lucide="calendar" class="w-3 h-3 inline mr-1"></i>${t.dueDate}</span>
-                                                    ${t.classId ? `<span class="text-indigo-500">#School</span>` : ''}
-                                                    ${t.projectId ? `<span class="text-green-500">#Project</span>` : ''}
-                                                </div>
-                                            </div>
-                                        </div>
-                                        <button onclick="deleteData('tasks', ${t.id})" class="opacity-0 group-hover:opacity-100 p-2 text-red-400 hover:bg-red-50 rounded-lg transition-all"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
-                                    </div>
-                                `).join('') || '<p class="text-slate-400 text-sm italic py-4">Nothing here.</p>'}
-                            </div>
-                        </section>
-                    `).join('')}
-                </div>
-            `;
+            nav.innerHTML = html;
+            lucide.createIcons();
         }
 
-        // --- 6. Feature: SCHOOL (CLASS MGMT + ASSIGNMENTS) ---
-        async function renderSchool(vp) {
-            const classes = await db.school.toArray();
-            const assignments = await db.assignments.toArray();
+        // --- Dashboard ---
+        async function renderDashboard(vp) {
+            vp.innerHTML = `<div id="dashboard-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"></div>`;
+            const grid = document.getElementById('dashboard-grid');
+            
+            const widgets = {
+                tasks: async () => {
+                    const data = await db.tasks.where('status').notEqual('done').limit(5).toArray();
+                    return renderWidget('Active Tasks', data.map(t => `<div class="flex items-center gap-3 mb-2"><input type="checkbox" onchange="toggleTask(${t.id})" class="accent-black"><span class="text-xs font-medium">${t.title}</span></div>`).join('') || '<p class="text-xs text-slate-400">No tasks</p>');
+                },
+                events: async () => {
+                    const data = await db.events.limit(3).toArray();
+                    return renderWidget('Schedule', data.map(e => `<div class="p-2 bg-slate-100 rounded-lg mb-2"><p class="text-[10px] font-bold">${e.title}</p></div>`).join('') || '<p class="text-xs text-slate-400">Empty</p>');
+                },
+                projects: async () => {
+                   const data = await db.projects.limit(2).toArray();
+                   return renderWidget('Projects', data.map(p => `<div class="mb-2"><p class="text-[10px] font-bold mb-1">${p.name}</p><div class="h-1 w-full bg-slate-100 rounded-full overflow-hidden"><div class="bg-black h-full" style="width:${p.progress}%"></div></div></div>`).join('') || '<p class="text-xs text-slate-400">None</p>');
+                },
+                habits: async () => {
+                    const data = await db.habits.limit(3).toArray();
+                    return renderWidget('Habits', data.map(h => `<div class="flex justify-between text-xs mb-2"><span>${h.name}</span><span class="font-bold text-orange-500">${h.streak}d</span></div>`).join(''));
+                }
+            };
 
-            vp.innerHTML = `
-                <div class="max-w-5xl mx-auto">
-                    <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                        <div class="lg:col-span-2 space-y-8">
-                            <h3 class="text-xl font-bold">Current Assignments</h3>
-                            <div class="space-y-3">
-                                ${assignments.map(a => `
-                                    <div class="card p-5 flex justify-between items-center">
-                                        <div>
-                                            <p class="font-bold">${a.title}</p>
-                                            <p class="text-xs text-indigo-600 font-medium">Class ID: ${a.classId} • Weight: ${a.weight}%</p>
-                                        </div>
-                                        <div class="text-right">
-                                            <p class="text-xs font-bold text-slate-400 uppercase">Due ${a.dueDate}</p>
-                                            <button onclick="deleteData('assignments', ${a.id})" class="text-[10px] text-red-500 font-bold hover:underline">Remove</button>
-                                        </div>
-                                    </div>
-                                `).join('') || '<p class="text-slate-400 italic">No assignments tracked yet.</p>'}
-                            </div>
-                        </div>
-                        <div class="space-y-6">
-                            <h3 class="text-xl font-bold">Class Schedule</h3>
-                            ${classes.map(c => `
-                                <div class="bg-indigo-900 text-white p-5 rounded-3xl shadow-xl">
-                                    <p class="text-[10px] font-black uppercase opacity-60 tracking-widest mb-1">${c.schedule}</p>
-                                    <h4 class="text-lg font-bold">${c.className}</h4>
-                                    <p class="text-sm opacity-80 mt-2">${c.instructor}</p>
-                                    <div class="mt-4 pt-4 border-t border-white/10 flex justify-between">
-                                        <button onclick="deleteData('school', ${c.id})" class="text-[10px] font-bold opacity-40 hover:opacity-100 uppercase">Drop Class</button>
-                                        <button class="text-[10px] font-bold bg-white/20 px-3 py-1 rounded-full">Resources</button>
-                                    </div>
-                                </div>
-                            `).join('') || '<p class="text-slate-400 italic text-sm">Add your courses in the "+" menu.</p>'}
-                        </div>
-                    </div>
-                </div>
-            `;
+            for(let key of Object.keys(config.enabledFeatures)) {
+                if(config.enabledFeatures[key] && widgets[key]) {
+                    grid.innerHTML += await widgets[key]();
+                }
+            }
         }
 
-        // --- 7. Feature: PROJECTS (GOALS & MILESTONES) ---
-        async function renderProjects(vp) {
-            const projects = await db.projects.toArray();
-            vp.innerHTML = `
-                <div class="max-w-4xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-6">
-                    ${projects.map(p => `
-                        <div class="card p-6 flex flex-col h-full">
-                            <div class="flex justify-between mb-4">
-                                <h3 class="font-bold text-lg">${p.name}</h3>
-                                <span class="bg-green-100 text-green-700 text-[10px] font-black px-2 py-1 rounded uppercase tracking-tighter">${p.status}</span>
-                            </div>
-                            <p class="text-xs text-slate-500 mb-6 font-medium">Objective: ${p.goals || 'No core objective set.'}</p>
-                            <div class="mt-auto">
-                                <div class="flex justify-between text-[10px] font-bold text-slate-400 mb-1">
-                                    <span>MILESTONES</span>
-                                    <span>${p.progress}% Complete</span>
-                                </div>
-                                <div class="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
-                                    <div class="bg-black h-full transition-all duration-1000" style="width: ${p.progress}%"></div>
-                                </div>
-                                <div class="mt-6 flex gap-2">
-                                    <button onclick="updateProjectProgress(${p.id}, ${Math.min(p.progress+10, 100)})" class="flex-1 bg-slate-50 py-2 border rounded-xl text-[10px] font-bold hover:bg-slate-100">+10%</button>
-                                    <button onclick="deleteData('projects', ${p.id})" class="p-2 border rounded-xl text-red-500"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
-                                </div>
-                            </div>
-                        </div>
-                    `).join('') || '<div class="col-span-2 text-center py-20 text-slate-300 italic">No projects active. Use Quick Add.</div>'}
-                </div>
-            `;
+        function renderWidget(title, content) {
+            return `<div class="card p-6 min-h-[200px] flex flex-col"><h4 class="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-4">${title}</h4><div class="flex-1">${content}</div></div>`;
         }
 
-        // --- 8. Feature: EVENTS & EXTRACURRICULARS ---
+        // --- Calendar Component ---
         async function renderEvents(vp) {
-            const events = await db.events.orderBy('start').toArray();
+            const month = calendarDate.getMonth();
+            const year = calendarDate.getFullYear();
+            const monthName = calendarDate.toLocaleString('default', { month: 'long' });
+            
+            const firstDay = new Date(year, month, 1).getDay();
+            const daysInMonth = new Date(year, month + 1, 0).getDate();
+            const events = await db.events.toArray();
+
             vp.innerHTML = `
-                <div class="max-w-4xl mx-auto space-y-4">
-                    <div class="flex items-center justify-between mb-8">
-                        <h3 class="text-2xl font-bold">Planned Schedule</h3>
+                <div class="calendar-container card bg-white overflow-hidden flex flex-col h-full">
+                    <div class="p-4 border-b flex items-center justify-between">
+                        <h3 class="font-bold text-xl">${monthName} ${year}</h3>
                         <div class="flex gap-2">
-                             <button class="p-2 bg-white border rounded-lg"><i data-lucide="chevron-left" class="w-4 h-4"></i></button>
-                             <button class="px-4 py-2 bg-white border rounded-lg text-xs font-bold uppercase">Today</button>
-                             <button class="p-2 bg-white border rounded-lg"><i data-lucide="chevron-right" class="w-4 h-4"></i></button>
+                            <button onclick="navCal(-1)" class="p-2 hover:bg-slate-100 rounded-lg"><i data-lucide="chevron-left" class="w-5 h-5"></i></button>
+                            <button onclick="calendarDate=new Date(); setView('events')" class="px-4 py-2 text-xs font-bold uppercase uppercase text-slate-500">Today</button>
+                            <button onclick="navCal(1)" class="p-2 hover:bg-slate-100 rounded-lg"><i data-lucide="chevron-right" class="w-5 h-5"></i></button>
                         </div>
                     </div>
-                    ${events.map(e => `
-                        <div class="card p-5 group flex items-center justify-between">
-                            <div class="flex items-center gap-6">
-                                <div class="text-center w-16">
-                                    <p class="text-xs font-black text-slate-400">${e.start.split('T')[0].split('-')[2]}</p>
-                                    <p class="text-[10px] font-bold text-slate-300 uppercase">${new Date(e.start).toLocaleString('default', { month: 'short' })}</p>
-                                </div>
-                                <div class="h-10 w-1 bg-black rounded-full"></div>
-                                <div>
-                                    <h4 class="font-bold">${e.title}</h4>
-                                    <p class="text-xs text-slate-500 flex items-center gap-1"><i data-lucide="clock" class="w-3 h-3"></i> ${e.start.split('T')[1]} - ${e.end.split('T')[1]}</p>
-                                </div>
-                            </div>
-                            <button onclick="deleteData('events', ${e.id})" class="opacity-0 group-hover:opacity-100 p-2 text-slate-300 hover:text-red-500 transition-all"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
-                        </div>
-                    `).join('') || '<p class="text-center py-20 text-slate-400">Empty calendar.</p>'}
+                    <div class="calendar-grid flex-1 overflow-y-auto">
+                        <div class="calendar-day-header">Sun</div><div class="calendar-day-header">Mon</div><div class="calendar-day-header">Tue</div>
+                        <div class="calendar-day-header">Wed</div><div class="calendar-day-header">Thu</div><div class="calendar-day-header">Fri</div><div class="calendar-day-header">Sat</div>
+                        ${renderCalendarDays(year, month, firstDay, daysInMonth, events)}
+                    </div>
                 </div>
             `;
         }
 
-        async function renderActivities(vp) {
-            const activities = await db.extra.toArray();
-            vp.innerHTML = `
-                <div class="max-w-4xl mx-auto space-y-6">
-                    <div class="bg-yellow-400 p-8 rounded-[2rem] text-yellow-950 shadow-2xl shadow-yellow-400/20">
-                        <h3 class="text-3xl font-black mb-2 tracking-tight">Activities</h3>
-                        <p class="font-bold opacity-80 uppercase text-xs tracking-widest">Commitment tracking & schedules</p>
-                    </div>
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        ${activities.map(a => `
-                            <div class="card p-6 border-l-8 border-yellow-400">
-                                <div class="flex justify-between items-start mb-4">
-                                    <div><h4 class="text-xl font-bold">${a.name}</h4><p class="text-xs font-bold text-slate-400 uppercase tracking-widest">${a.role}</p></div>
-                                    <i data-lucide="star" class="w-5 h-5 text-yellow-500"></i>
-                                </div>
-                                <div class="flex items-center justify-between text-sm font-bold mt-8">
-                                    <div class="flex items-center gap-2 text-slate-600"><i data-lucide="clock" class="w-4 h-4"></i> ${a.hours}h / week</div>
-                                    <div class="px-3 py-1 bg-slate-100 rounded-full text-[10px] uppercase">${a.day || 'Everyday'}</div>
-                                </div>
-                                <button onclick="deleteData('extra', ${a.id})" class="mt-4 text-[10px] font-bold text-red-500 opacity-0 group-hover:opacity-100 transition-all">Remove</button>
-                            </div>
-                        `).join('') || '<div class="col-span-2 text-center py-20 text-slate-300 italic">No extracurriculars tracked.</div>'}
-                    </div>
-                </div>
-            `;
-            lucide.createIcons();
+        function navCal(move) {
+            calendarDate.setMonth(calendarDate.getMonth() + move);
+            setView('events');
         }
 
-        // --- 9. Feature: SETTINGS (SEARCH + TOGGLES + BACKUP) ---
-        function renderSettings(vp) {
+        function renderCalendarDays(year, month, firstDay, daysInMonth, events) {
+            let html = '';
+            // Previous month overflow
+            for(let i = 0; i < firstDay; i++) html += `<div class="calendar-day other-month"></div>`;
+            
+            const today = new Date().toISOString().split('T')[0];
+            
+            for(let d = 1; d <= daysInMonth; d++) {
+                const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+                const isToday = dateStr === today;
+                const dayEvents = events.filter(e => e.start.startsWith(dateStr));
+
+                html += `
+                    <div class="calendar-day ${isToday?'today':''}">
+                        <div class="day-num text-xs font-bold mb-2">${d}</div>
+                        <div class="space-y-1">
+                            ${dayEvents.map(e => `<div class="bg-indigo-600 text-[9px] text-white p-1 rounded truncate pointer-events-none">${e.title}</div>`).join('')}
+                        </div>
+                    </div>
+                `;
+            }
+            return html;
+        }
+
+        // --- Module Implementations ---
+        async function renderTasks(vp) {
+            const data = await db.tasks.toArray();
+            vp.innerHTML = `<div class="max-w-3xl mx-auto space-y-4">
+                ${data.map(t => `<div class="card p-4 flex items-center justify-between">
+                    <div class="flex items-center gap-4"><input type="checkbox" onchange="toggleTask(${t.id})" ${t.status==='done'?'checked':''} class="w-5 h-5 accent-black">
+                    <span class="${t.status==='done'?'line-through text-slate-400':'font-bold'}">${t.title}</span></div>
+                    <button onclick="deleteItem('tasks', ${t.id})" class="text-red-400 hover:text-red-600"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
+                </div>`).join('') || '<p class="text-center text-slate-400 py-10">No tasks found.</p>'}
+            </div>`;
+        }
+
+        async function renderProjects(vp) {
+            const data = await db.projects.toArray();
+            vp.innerHTML = `<div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                ${data.map(p => `<div class="card p-6">
+                    <h3 class="font-bold text-lg mb-2">${p.name}</h3>
+                    <div class="flex items-center gap-3 mb-6"><div class="flex-1 h-2 bg-slate-100 rounded-full overflow-hidden"><div class="bg-green-500 h-full" style="width:${p.progress}%"></div></div><span class="text-xs font-black">${p.progress}%</span></div>
+                    <div class="flex gap-2">
+                        <button onclick="updateProj(${p.id}, 10)" class="flex-1 py-2 bg-slate-50 border rounded-lg text-xs font-bold">+10%</button>
+                        <button onclick="deleteItem('projects', ${p.id})" class="p-2 border rounded-lg"><i data-lucide="trash-2" class="w-4 h-4 text-red-400"></i></button>
+                    </div>
+                </div>`).join('')}
+            </div>`;
+        }
+
+        async function renderSettings(vp) {
             vp.innerHTML = `
-                <div class="max-w-2xl mx-auto space-y-12">
-                    <section>
-                        <h3 class="text-xs font-black text-slate-400 uppercase tracking-[0.3em] mb-6">User Experience</h3>
-                        <div class="card overflow-hidden divide-y">
-                            <div class="p-6 flex items-center justify-between">
-                                <div><p class="font-bold text-sm">Dashboard Mode</p><p class="text-xs text-slate-500">How would you like your command center?</p></div>
-                                <select onchange="updateConfig('dashboardMode', this.value)" class="bg-slate-50 border p-2 rounded-lg text-xs font-bold">
-                                    <option value="command" ${config.dashboardMode==='command'?'selected':''}>Command (Modular)</option>
-                                    <option value="minimal" ${config.dashboardMode==='minimal'?'selected':''}>Minimal (Lists)</option>
-                                    <option value="dynamic" ${config.dashboardMode==='dynamic'?'selected':''}>Dynamic (Urgency)</option>
-                                </select>
-                            </div>
-                            <div class="p-6 flex items-center justify-between">
-                                <div><p class="font-bold text-sm">Automated Carryover</p><p class="text-xs text-slate-500">Unfinished tasks move to the next day at midnight.</p></div>
-                                <button onclick="updateConfig('autoCarryover', !config.autoCarryover)" class="w-12 h-6 rounded-full transition-all relative ${config.autoCarryover?'bg-black':'bg-slate-200'}">
-                                    <div class="w-4 h-4 bg-white rounded-full absolute top-1 transition-all ${config.autoCarryover?'right-1':'left-1'}"></div>
-                                </button>
-                            </div>
+                <div class="max-w-2xl mx-auto space-y-8">
+                    <section class="card p-8">
+                        <h3 class="font-bold text-lg mb-6">Manage Modules</h3>
+                        <div class="space-y-4">
+                            ${Object.keys(featureMeta).map(key => `
+                                <div class="flex items-center justify-between p-4 bg-slate-50 rounded-xl">
+                                    <div class="flex items-center gap-3"><i data-lucide="${featureMeta[key].icon}" class="w-5 h-5 text-slate-500"></i><span class="font-bold text-sm">${featureMeta[key].label}</span></div>
+                                    <button onclick="toggleFeature('${key}')" class="w-12 h-6 rounded-full relative transition-all ${config.enabledFeatures[key]?'bg-black':'bg-slate-300'}">
+                                        <div class="w-4 h-4 bg-white rounded-full absolute top-1 transition-all ${config.enabledFeatures[key]?'right-1':'left-1'}"></div>
+                                    </button>
+                                </div>
+                            `).join('')}
                         </div>
                     </section>
 
-                    <section>
-                        <h3 class="text-xs font-black text-slate-400 uppercase tracking-[0.3em] mb-6">Data & Portability</h3>
-                        <div class="grid grid-cols-2 gap-4">
-                            <button onclick="exportData()" class="card p-6 text-left hover:bg-slate-50 transition-all">
-                                <i data-lucide="download" class="w-5 h-5 mb-3 text-slate-400"></i>
-                                <p class="font-bold text-sm">Export JSON</p>
-                                <p class="text-[10px] text-slate-500">Download a full device backup.</p>
-                            </button>
-                            <label class="card p-6 text-left hover:bg-slate-50 transition-all cursor-pointer">
-                                <input type="file" class="hidden" onchange="importData(event)">
-                                <i data-lucide="upload" class="w-5 h-5 mb-3 text-slate-400"></i>
-                                <p class="font-bold text-sm">Import Data</p>
-                                <p class="text-[10px] text-slate-500">Restore from local file.</p>
-                            </label>
-                            <button onclick="factoryReset()" class="card p-6 text-left border-red-100 hover:bg-red-50 group transition-all">
-                                <i data-lucide="alert-triangle" class="w-5 h-5 mb-3 text-red-400"></i>
-                                <p class="font-bold text-sm text-red-600">Wipe Database</p>
-                                <p class="text-[10px] text-red-400">Permanently delete all local data.</p>
-                            </button>
+                    <section class="card p-8">
+                        <h3 class="font-bold text-lg mb-6">Database Controls</h3>
+                        <div class="flex gap-4">
+                            <button onclick="exportJSON()" class="flex-1 py-3 bg-slate-100 rounded-xl text-xs font-bold uppercase transition-all hover:bg-slate-200">Export Backup</button>
+                            <button onclick="factoryReset()" class="flex-1 py-3 bg-red-50 text-red-600 rounded-xl text-xs font-bold uppercase transition-all hover:bg-red-100">Clear All Data</button>
                         </div>
                     </section>
                 </div>
@@ -479,138 +319,88 @@
             lucide.createIcons();
         }
 
-        // --- 10. Automation Logic ---
-        async function runAutomations() {
-            if(!config.autoCarryover) return;
-            const todayStr = new Date().toISOString().split('T')[0];
-            const overdue = await db.tasks.where('dueDate').below(todayStr).and(t => t.status !== 'done').toArray();
-            for(let t of overdue) {
-                await db.tasks.update(t.id, { dueDate: todayStr });
-            }
-        }
-
-        // --- 11. Helpers & Core CRUD ---
-        function openQuickAdd() {
-            const types = ['Task', 'Project', 'Habit', 'Class', 'Assignment', 'Event', 'Activity'];
-            openModal('Create New Entry', `
-                <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
-                    ${types.map(t => `<button onclick="renderSpecificForm('${t}')" class="p-4 border rounded-2xl hover:bg-slate-50 text-left transition-all">
-                        <p class="font-bold text-xs uppercase tracking-tighter mb-1">${t}</p>
-                        <i data-lucide="plus" class="w-4 h-4 text-slate-400"></i>
-                    </button>`).join('')}
-                </div>
-            `);
-        }
-
-        function renderSpecificForm(type) {
-            let form = `<form id="quick-form" onsubmit="handleFormSubmit(event, '${type}')" class="space-y-4">`;
-            switch(type) {
-                case 'Task':
-                    form += `
-                        <input name="title" required placeholder="What needs doing?" class="w-full p-4 bg-slate-50 rounded-2xl border-none outline-none ring-2 ring-transparent focus:ring-black">
-                        <div class="grid grid-cols-2 gap-4">
-                            <select name="priority" class="p-4 bg-slate-50 rounded-2xl border-none">
-                                <option value="1">Low Luck</option><option value="2" selected>Medium</option><option value="3">Urgent</option>
-                            </select>
-                            <input name="dueDate" type="date" value="${new Date().toISOString().split('T')[0]}" class="p-4 bg-slate-50 rounded-2xl border-none">
-                        </div>`;
-                    break;
-                case 'Project':
-                    form += `<input name="name" required placeholder="Project name" class="w-full p-4 bg-slate-50 rounded-2xl border-none">
-                             <textarea name="goals" placeholder="Core objective" class="w-full p-4 bg-slate-50 rounded-2xl border-none"></textarea>
-                             <input name="deadline" type="date" class="w-full p-4 bg-slate-50 rounded-2xl border-none">`;
-                    break;
-                case 'Class':
-                    form += `<input name="className" required placeholder="Subject name" class="w-full p-4 bg-slate-50 rounded-2xl border-none">
-                             <input name="instructor" placeholder="Professor" class="w-full p-4 bg-slate-50 rounded-2xl border-none">
-                             <input name="schedule" placeholder="MWF 10:00AM" class="w-full p-4 bg-slate-50 rounded-2xl border-none">`;
-                    break;
-                case 'Assignment':
-                    form += `<input name="title" required placeholder="Assignment title" class="w-full p-4 bg-slate-50 rounded-2xl border-none">
-                             <input name="classId" placeholder="Class Name/ID" class="w-full p-4 bg-slate-50 rounded-2xl border-none">
-                             <div class="grid grid-cols-2 gap-4">
-                               <input name="weight" type="number" placeholder="Weight %" class="p-4 bg-slate-50 rounded-2xl border-none">
-                               <input name="dueDate" type="date" class="p-4 bg-slate-50 rounded-2xl border-none">
-                             </div>`;
-                    break;
-                case 'Event':
-                    form += `<input name="title" required placeholder="Meeting / Event title" class="w-full p-4 bg-slate-50 rounded-2xl border-none">
-                             <div class="grid grid-cols-2 gap-2">
-                               <label class="text-[10px] font-bold text-slate-400">START</label><label class="text-[10px] font-bold text-slate-400">END</label>
-                               <input name="start" type="datetime-local" class="p-4 bg-slate-50 rounded-2xl border-none">
-                               <input name="end" type="datetime-local" class="p-4 bg-slate-50 rounded-2xl border-none">
-                             </div>`;
-                    break;
-                case 'Habit':
-                    form += `<input name="name" required placeholder="Habit name" class="w-full p-4 bg-slate-50 rounded-2xl border-none">
-                             <select name="frequency" class="w-full p-4 bg-slate-50 rounded-2xl border-none">
-                               <option>Daily</option><option>Weekly</option><option>M/W/F</option>
-                             </select>`;
-                    break;
-                case 'Activity':
-                    form += `<input name="name" required placeholder="Activity name" class="w-full p-4 bg-slate-50 rounded-2xl border-none">
-                             <input name="role" placeholder="Your role" class="w-full p-4 bg-slate-50 rounded-2xl border-none">
-                             <input name="hours" type="number" placeholder="Hours per week" class="w-full p-4 bg-slate-50 rounded-2xl border-none">`;
-                    break;
-            }
-            form += `<button type="submit" class="w-full py-4 bg-black text-white font-bold rounded-2xl mt-4">Save Entry</button></form>`;
-            document.getElementById('modal-body').innerHTML = form;
-            document.getElementById('modal-title').innerText = `New ${type}`;
-        }
-
-        async function handleFormSubmit(e, type) {
-            e.preventDefault();
-            const fd = new FormData(e.target);
-            const data = Object.fromEntries(fd.entries());
-            
-            // Model specific data mapping
-            if(type === 'Task') { data.status = 'pending'; data.createdAt = Date.now(); await db.tasks.add(data); }
-            if(type === 'Project') { data.progress = 0; data.status = 'active'; await db.projects.add(data); }
-            if(type === 'Habit') { data.streak = 0; data.logs = []; await db.habits.add(data); }
-            if(type === 'Class') { await db.school.add(data); }
-            if(type === 'Assignment') { data.status = 'todo'; await db.assignments.add(data); }
-            if(type === 'Event') { await db.events.add(data); }
-            if(type === 'Activity') { await db.extra.add(data); }
-            
-            closeModal();
-            setView(currentView);
+        // --- Handlers ---
+        function toggleFeature(key) {
+            config.enabledFeatures[key] = !config.enabledFeatures[key];
+            localStorage.setItem('planner_config', JSON.stringify(config));
+            setView('settings');
         }
 
         async function toggleTask(id) {
-            const task = await db.tasks.get(id);
-            await db.tasks.update(id, { status: task.status === 'done' ? 'pending' : 'done' });
+            const t = await db.tasks.get(id);
+            await db.tasks.update(id, { status: t.status === 'done' ? 'pending' : 'done' });
             setView(currentView);
         }
 
-        async function updateProjectProgress(id, val) {
-            await db.projects.update(id, { progress: val });
+        async function updateProj(id, amt) {
+            const p = await db.projects.get(id);
+            await db.projects.update(id, { progress: Math.min(p.progress + amt, 100) });
             setView(currentView);
         }
 
-        async function deleteData(table, id) {
-            if(confirm('Permanently delete this item?')) {
+        async function deleteItem(table, id) {
+            if(confirm('Delete permanently?')) {
                 await db[table].delete(id);
                 setView(currentView);
             }
         }
 
-        function updateConfig(key, val) {
-            config[key] = val;
-            localStorage.setItem('planner_config', JSON.stringify(config));
-            setView(currentView);
+        async function factoryReset() {
+            if(confirm('This will wipe all local data. Continue?')) {
+                await db.delete();
+                localStorage.clear();
+                window.location.reload();
+            }
         }
 
-        function initSortable() {
-            const el = document.getElementById('widget-grid');
-            if(!el) return;
-            Sortable.create(el, {
-                animation: 150, handle: '.widget-header', ghostClass: 'widget-ghost',
-                onEnd: () => {
-                    const newLayout = Array.from(el.children).map(c => c.getAttribute('data-id'));
-                    localStorage.setItem('planner_layout', JSON.stringify(newLayout));
-                    dashboardLayout = newLayout;
-                }
-            });
+        function openQuickAdd() {
+            const enabled = Object.keys(config.enabledFeatures).filter(k => config.enabledFeatures[k]);
+            openModal('Quick Add', `
+                <div class="grid grid-cols-2 gap-3">
+                    ${enabled.map(k => `
+                        <button onclick="renderAddForm('${k}')" class="p-6 border rounded-2xl hover:bg-slate-50 text-left transition-all">
+                            <p class="text-[10px] font-black uppercase text-slate-400 mb-1">${k}</p>
+                            <p class="font-bold text-sm">${featureMeta[k].label}</p>
+                        </button>
+                    `).join('')}
+                </div>
+            `);
+        }
+
+        function renderAddForm(key) {
+            let html = `<form onsubmit="saveEntry(event, '${key}')" class="space-y-4">`;
+            switch(key) {
+                case 'tasks': 
+                    html += `<input name="title" required placeholder="Task name..." class="w-full p-4 bg-slate-50 border-none rounded-2xl">`;
+                    break;
+                case 'projects':
+                    html += `<input name="name" required placeholder="Project title..." class="w-full p-4 bg-slate-50 border-none rounded-2xl">`;
+                    break;
+                case 'events':
+                    html += `
+                        <input name="title" required placeholder="Event name..." class="w-full p-4 bg-slate-50 border-none rounded-2xl mb-2">
+                        <label class="text-[10px] font-bold text-slate-400 ml-2">START TIME</label>
+                        <input name="start" type="datetime-local" class="w-full p-4 bg-slate-50 border-none rounded-2xl">
+                    `;
+                    break;
+                default:
+                    html += `<input name="name" required placeholder="Name..." class="w-full p-4 bg-slate-50 border-none rounded-2xl">`;
+            }
+            html += `<button type="submit" class="w-full py-4 bg-black text-white font-bold rounded-2xl mt-4">Save Entry</button></form>`;
+            document.getElementById('modal-body').innerHTML = html;
+        }
+
+        async function saveEntry(e, key) {
+            e.preventDefault();
+            const fd = new FormData(e.target);
+            const data = Object.fromEntries(fd.entries());
+            if(key === 'tasks') data.status = 'pending';
+            if(key === 'projects') data.progress = 0;
+            if(key === 'habits') data.streak = 0;
+            
+            await db[key].add(data);
+            closeModal();
+            setView(currentView);
         }
 
         function openModal(title, content) {
@@ -622,54 +412,25 @@
 
         function closeModal() { document.getElementById('modal-overlay').classList.add('hidden'); }
 
-        async function exportData() {
-            const data = {
-                tasks: await db.tasks.toArray(), projects: await db.projects.toArray(),
-                habits: await db.habits.toArray(), school: await db.school.toArray(),
-                events: await db.events.toArray(), extra: await db.extra.toArray(),
-                assignments: await db.assignments.toArray(), config
-            };
+        async function exportJSON() {
+            const data = {};
+            for(let store of db.tables) data[store.name] = await store.toArray();
             const blob = new Blob([JSON.stringify(data)], { type: 'application/json' });
             const a = document.createElement('a');
             a.href = URL.createObjectURL(blob);
-            a.download = `my_planner_${new Date().toISOString().split('T')[0]}.json`;
+            a.download = `backup_${new Date().toISOString().split('T')[0]}.json`;
             a.click();
         }
 
-        function importData(e) {
-            const reader = new FileReader();
-            reader.onload = async (res) => {
-                const data = JSON.parse(res.target.result);
-                await db.tasks.bulkPut(data.tasks || []);
-                await db.projects.bulkPut(data.projects || []);
-                await db.habits.bulkPut(data.habits || []);
-                await db.school.bulkPut(data.school || []);
-                await db.events.bulkPut(data.events || []);
-                await db.extra.bulkPut(data.extra || []);
-                await db.assignments.bulkPut(data.assignments || []);
-                if(data.config) updateConfig('dashboardMode', data.config.dashboardMode);
-                window.location.reload();
-            };
-            reader.readAsText(e.target.files[0]);
-        }
-
-        function factoryReset() {
-            if(confirm("DANGER: This will delete everything. No undo.")) {
-                db.delete().then(() => { localStorage.clear(); window.location.reload(); });
-            }
-        }
-
-        // --- 12. Init ---
+        // --- System Init ---
         setInterval(() => {
             const now = new Date();
-            document.getElementById('clock').innerText = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+            document.getElementById('clock').innerText = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }) + ' • ' + now.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
         }, 1000);
 
-        window.onload = async () => {
-            await runAutomations();
-            const lastView = localStorage.getItem('last_view') || 'dashboard';
-            setView(lastView);
-            lucide.createIcons();
+        window.onload = () => {
+            const last = localStorage.getItem('last_view') || 'dashboard';
+            setView(last);
         };
     </script>
 </body>
