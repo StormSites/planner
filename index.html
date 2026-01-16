@@ -75,8 +75,7 @@
             width: 24px;
             height: 24px;
             display: flex;
-            align-items: center;
-            justify-content: center;
+            align-items: center; justify-content: center;
         }
 
         .event-chip {
@@ -104,6 +103,25 @@
             height: 1.2rem;
             accent-color: #2563eb;
             cursor: pointer;
+        }
+
+        /* NEW STYLE: Tab-Specific Add Button */
+        .btn-tab-action {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 6px 14px;
+            background: #f1f5f9;
+            color: #475569;
+            border-radius: 10px;
+            font-size: 12px;
+            font-weight: 700;
+            transition: all 0.2s;
+            margin-left: 12px;
+        }
+        .btn-tab-action:hover {
+            background: #e2e8f0;
+            color: #1e293b;
         }
     </style>
 </head>
@@ -138,7 +156,10 @@
         <main class="flex-1 flex flex-col min-w-0 bg-slate-50">
             <header class="h-20 bg-white border-b px-10 flex items-center justify-between shrink-0 z-10">
                 <div class="flex flex-col">
-                    <h2 id="view-title" class="text-xl font-bold text-slate-800">Command Center</h2>
+                    <div class="flex items-center">
+                        <h2 id="view-title" class="text-xl font-bold text-slate-800">Command Center</h2>
+                        <div id="tab-action-container"></div>
+                    </div>
                     <p id="view-subtitle" class="text-xs text-slate-400 font-medium"></p>
                 </div>
 
@@ -175,15 +196,9 @@
         </div>
     </div>
 
-    <!-- 
-    ================================================================
-    JAVASCRIPT LOGIC
-    ================================================================
-    -->
     <script>
         /** 
          * 1. DATABASE LAYER 
-         * Using Dexie.js for IndexedDB management. All data is strictly local.
          */
         const db = new Dexie("PlannerCompleteStorage");
         db.version(1).stores({
@@ -206,7 +221,7 @@
             currentCalendarDate: new Date(),
             dashboardLayout: JSON.parse(localStorage.getItem('dashboard_layout')) || ['tasks', 'schedule', 'habits', 'projects', 'school'],
             config: JSON.parse(localStorage.getItem('app_config')) || {
-                dashboardMode: 'command', // command, minimal, dynamic
+                dashboardMode: 'command',
                 features: {
                     tasks: true,
                     projects: true,
@@ -273,7 +288,6 @@
                 const clockTime = document.getElementById('clock-time');
                 const clockDate = document.getElementById('clock-date');
                 if (!clockTime) return;
-
                 clockTime.innerText = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true });
                 clockDate.innerText = now.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' });
             },
@@ -306,7 +320,6 @@
                 },
                 renderForm: (key) => {
                     let formHtml = `<form onsubmit="logic.handleForm(event, '${key}')" class="space-y-6">`;
-                    
                     switch(key) {
                         case 'tasks':
                             formHtml += `
@@ -336,13 +349,26 @@
                             break;
                         case 'habits':
                             formHtml += `
-                                <div><label class="block text-xs font-black uppercase text-slate-400 mb-2">Habit Action</label><input name="name" required placeholder="e.g. Meditate for 10 mins" class="w-full p-4 bg-white border border-slate-200 rounded-2xl outline-none focus:ring-2 focus:ring-indigo-500"></div>
+                                <div><label class="block text-xs font-black uppercase text-slate-400 mb-2">Habit Action</label><input name="name" required placeholder="e.g. Meditate" class="w-full p-4 bg-white border border-slate-200 rounded-2xl outline-none focus:ring-2 focus:ring-indigo-500"></div>
+                            `;
+                            break;
+                        case 'school':
+                            formHtml += `
+                                <div><label class="block text-xs font-black uppercase text-slate-400 mb-2">Class Name</label><input name="className" required placeholder="e.g. Physics 101" class="w-full p-4 bg-white border border-slate-200 rounded-2xl outline-none focus:ring-2 focus:ring-indigo-500"></div>
+                                <div><label class="block text-xs font-black uppercase text-slate-400 mb-2">Instructor</label><input name="instructor" class="w-full p-4 bg-white border border-slate-200 rounded-2xl outline-none"></div>
+                            `;
+                            break;
+                        case 'extra':
+                            formHtml += `
+                                <div><label class="block text-xs font-black uppercase text-slate-400 mb-2">Activity Name</label><input name="name" required class="w-full p-4 bg-white border border-slate-200 rounded-2xl outline-none focus:ring-2 focus:ring-indigo-500"></div>
                             `;
                             break;
                     }
-                    
                     formHtml += `<button type="submit" class="w-full py-4 bg-indigo-600 text-white font-bold rounded-2xl shadow-xl shadow-indigo-100 hover:scale-[1.02] active:scale-95 transition-all mt-4">Save Entry</button></form>`;
                     document.getElementById('modal-body').innerHTML = formHtml;
+                    if(document.getElementById('modal-overlay').classList.contains('hidden')) {
+                        ui.modal.open(`Add ${key.charAt(0).toUpperCase() + key.slice(1)}`, `Create a new entry for ${key}`, formHtml);
+                    }
                 }
             }
         };
@@ -363,11 +389,21 @@
                 const viewport = document.getElementById('viewport');
                 const title = document.getElementById('view-title');
                 const subtitle = document.getElementById('view-subtitle');
+                const actionBtn = document.getElementById('tab-action-container');
                 
                 title.innerText = FEATURE_META[view]?.label || 'Settings';
                 subtitle.innerText = `Manage your ${view} and organized life.`;
-                viewport.innerHTML = `<div class="flex items-center justify-center py-20"><div class="animate-spin h-8 w-8 border-4 border-indigo-600 border-t-transparent rounded-full"></div></div>`;
 
+                // NEW FEATURE: Tab-specific Add button
+                if(view !== 'dashboard' && view !== 'settings') {
+                    actionBtn.innerHTML = `
+                        <button onclick="ui.modal.renderForm('${view}')" class="btn-tab-action">
+                            <i data-lucide="plus-circle" class="w-4 h-4"></i> Add ${view.slice(0, -1)}
+                        </button>
+                    `;
+                } else { actionBtn.innerHTML = ''; }
+
+                viewport.innerHTML = `<div class="flex items-center justify-center py-20"><div class="animate-spin h-8 w-8 border-4 border-indigo-600 border-t-transparent rounded-full"></div></div>`;
                 switch(view) {
                     case 'dashboard': await renderers.dashboard(viewport); break;
                     case 'tasks': await renderers.tasks(viewport); break;
@@ -378,13 +414,12 @@
                     case 'extra': await renderers.extra(viewport); break;
                     case 'settings': renderers.settings(viewport); break;
                 }
-                
                 lucide.createIcons();
             }
         };
 
         /**
-         * 5. VIEW RENDERERS (THE HARD STUFF)
+         * 5. VIEW RENDERERS
          */
         const renderers = {
             dashboard: async (target) => {
@@ -397,285 +432,159 @@
                                     <i data-lucide="more-horizontal" class="w-4 h-4 text-slate-300"></i>
                                 </div>
                                 <div id="widget-content-${wId}" class="p-8 flex-1 overflow-y-auto hide-scrollbar">
-                                    <div class="animate-pulse space-y-3">
-                                        <div class="h-4 bg-slate-100 rounded w-3/4"></div>
-                                        <div class="h-4 bg-slate-100 rounded"></div>
-                                    </div>
+                                    <div class="animate-pulse space-y-3"><div class="h-4 bg-slate-100 rounded w-3/4"></div><div class="h-4 bg-slate-100 rounded"></div></div>
                                 </div>
                             </div>
                         `).join('')}
                     </div>
                 `;
-
-                // Initialize Sortable
                 new Sortable(document.getElementById('widget-grid'), {
-                    animation: 150,
-                    handle: '.widget-header',
-                    ghostClass: 'widget-ghost',
+                    animation: 150, handle: '.widget-header', ghostClass: 'widget-ghost',
                     onEnd: (evt) => {
                         const newOrder = Array.from(evt.to.children).map(el => el.dataset.id);
                         localStorage.setItem('dashboard_layout', JSON.stringify(newOrder));
-                        state.dashboardLayout = newOrder;
                     }
                 });
-
-                // Populate Widgets
                 const loaders = {
                     tasks: async () => {
                         const tasks = await db.tasks.where('status').notEqual('done').limit(5).toArray();
-                        document.getElementById('widget-content-tasks').innerHTML = tasks.length ? `
-                            <div class="space-y-4">
-                                ${tasks.map(t => `<div class="flex items-center gap-3"><input type="checkbox" onchange="logic.toggleTask(${t.id})" class="rounded-full"> <span class="text-sm font-medium text-slate-600">${t.title}</span></div>`).join('')}
-                            </div>
-                        ` : `<p class="text-slate-300 text-sm italic">No pending tasks.</p>`;
+                        document.getElementById('widget-content-tasks').innerHTML = tasks.length ? `<div class="space-y-4">${tasks.map(t => `<div class="flex items-center gap-3"><input type="checkbox" onchange="logic.toggleTask(${t.id})" class="rounded-full"> <span class="text-sm font-medium text-slate-600">${t.title}</span></div>`).join('')}</div>` : `<p class="text-slate-300 text-sm italic">No pending tasks.</p>`;
                     },
                     habits: async () => {
                         const habits = await db.habits.toArray();
-                        document.getElementById('widget-content-habits').innerHTML = habits.length ? `
-                            <div class="space-y-6">
-                                ${habits.map(h => `
-                                    <div>
-                                        <div class="flex justify-between text-[11px] font-bold text-slate-500 uppercase mb-2"><span>${h.name}</span><span class="text-indigo-600">${h.streak}d</span></div>
-                                        <div class="w-full bg-slate-100 h-1.5 rounded-full overflow-hidden"><div class="bg-indigo-600 h-full" style="width: ${Math.min(h.streak * 10, 100)}%"></div></div>
-                                    </div>
-                                `).join('')}
-                            </div>
-                        ` : `<p class="text-slate-300 text-sm italic">No habits tracking.</p>`;
+                        document.getElementById('widget-content-habits').innerHTML = habits.length ? `<div class="space-y-6">${habits.map(h => `<div><div class="flex justify-between text-[11px] font-bold text-slate-500 uppercase mb-2"><span>${h.name}</span><span class="text-indigo-600">${h.streak}d</span></div><div class="w-full bg-slate-100 h-1.5 rounded-full overflow-hidden"><div class="bg-indigo-600 h-full" style="width: ${Math.min(h.streak * 10, 100)}%"></div></div></div>`).join('')}</div>` : `<p class="text-slate-300 text-sm italic">No habits tracking.</p>`;
                     },
                     schedule: async () => {
                         const today = new Date().toISOString().split('T')[0];
                         const dayEvents = await db.events.where('start').startsWith(today).toArray();
-                        document.getElementById('widget-content-schedule').innerHTML = dayEvents.length ? `
-                            <div class="space-y-4">
-                                ${dayEvents.map(e => `
-                                    <div class="flex gap-4 items-start">
-                                        <div class="w-1 text-[10px] font-bold text-slate-300 leading-tight pt-1 capitalize">${e.start.split('T')[1].slice(0,5)}</div>
-                                        <div class="flex-1 bg-white border border-slate-100 p-3 rounded-xl"><p class="text-xs font-bold text-slate-700">${e.title}</p></div>
-                                    </div>
-                                `).join('')}
-                            </div>
-                        ` : `<p class="text-slate-300 text-sm italic">No events today.</p>`;
+                        document.getElementById('widget-content-schedule').innerHTML = dayEvents.length ? `<div class="space-y-4">${dayEvents.map(e => `<div class="flex gap-4 items-start"><div class="w-1 text-[10px] font-bold text-slate-300 leading-tight pt-1 capitalize">${e.start.split('T')[1].slice(0,5)}</div><div class="flex-1 bg-white border border-slate-100 p-3 rounded-xl"><p class="text-xs font-bold text-slate-700">${e.title}</p></div></div>`).join('')}</div>` : `<p class="text-slate-300 text-sm italic">No events today.</p>`;
                     },
                     projects: async () => {
                         const projs = await db.projects.toArray();
-                        document.getElementById('widget-content-projects').innerHTML = projs.length ? `
-                             <div class="space-y-4">
-                                ${projs.map(p => `<div class="p-4 bg-slate-50 border border-slate-100 rounded-2xl flex justify-between items-center"><span class="text-xs font-bold truncate pr-4">${p.name}</span> <span class="text-[10px] font-black bg-indigo-100 text-indigo-700 px-2 py-1 rounded">${p.progress}%</span></div>`).join('')}
-                             </div>
-                        ` : '<p class="text-slate-300 text-sm italic">No active projects.</p>';
+                        document.getElementById('widget-content-projects').innerHTML = projs.length ? `<div class="space-y-4">${projs.map(p => `<div class="p-4 bg-slate-50 border border-slate-100 rounded-2xl flex justify-between items-center"><span class="text-xs font-bold truncate pr-4">${p.name}</span> <span class="text-[10px] font-black bg-indigo-100 text-indigo-700 px-2 py-1 rounded">${p.progress}%</span></div>`).join('')}</div>` : '<p class="text-slate-300 text-sm italic">No active projects.</p>';
+                    },
+                    school: async () => {
+                        const classes = await db.school.limit(3).toArray();
+                        document.getElementById('widget-content-school').innerHTML = classes.length ? `<div class="space-y-3">${classes.map(c => `<div class="p-3 bg-indigo-50 border border-indigo-100 rounded-xl text-xs font-bold text-indigo-700">${c.className}</div>`).join('')}</div>` : '<p class="text-slate-300 text-sm italic">No classes.</p>';
                     }
                 };
-
-                Object.keys(loaders).forEach(k => loaders[k] ? loaders[k]() : null);
+                Object.keys(loaders).forEach(k => loaders[k]());
+                lucide.createIcons();
             },
 
             events: async (target) => {
                 const year = state.currentCalendarDate.getFullYear();
                 const month = state.currentCalendarDate.getMonth();
                 const monthName = state.currentCalendarDate.toLocaleString('default', { month: 'long' });
-                
                 const firstDay = new Date(year, month, 1).getDay();
                 const daysInMonth = new Date(year, month + 1, 0).getDate();
                 const events = await db.events.toArray();
-                
-                let calendarHtml = `
+                target.innerHTML = `
                     <div class="bg-white rounded-[2rem] shadow-sm border border-slate-200 overflow-hidden flex flex-col h-full">
-                        <div class="p-8 border-b flex justify-between items-center">
-                            <div class="flex items-center gap-4">
-                                <button onclick="renderers.changeMonth(-1)" class="p-2 hover:bg-slate-100 rounded-lg"><i data-lucide="chevron-left" class="w-5 h-5"></i></button>
-                                <h3 class="text-2xl font-bold">${monthName} ${year}</h3>
-                                <button onclick="renderers.changeMonth(1)" class="p-2 hover:bg-slate-100 rounded-lg"><i data-lucide="chevron-right" class="w-5 h-5"></i></button>
-                            </div>
-                            <button onclick="state.currentCalendarDate = new Date(); router.load('events')" class="text-xs font-bold text-indigo-600 hover:underline px-4">Jump to Today</button>
-                        </div>
+                        <div class="p-8 border-b flex justify-between items-center"><div class="flex items-center gap-4"><button onclick="renderers.changeMonth(-1)" class="p-2 hover:bg-slate-100 rounded-lg"><i data-lucide="chevron-left" class="w-5 h-5"></i></button><h3 class="text-2xl font-bold">${monthName} ${year}</h3><button onclick="renderers.changeMonth(1)" class="p-2 hover:bg-slate-100 rounded-lg"><i data-lucide="chevron-right" class="w-5 h-5"></i></button></div><button onclick="state.currentCalendarDate = new Date(); router.load('events')" class="text-xs font-bold text-indigo-600 hover:underline px-4">Jump to Today</button></div>
                         <div class="calendar-grid bg-slate-200 flex-1">
                             ${['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].map(h => `<div class="bg-slate-50 p-4 text-center text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] border-r border-b border-slate-200">${h}</div>`).join('')}
                             ${renderers.calculateCalendarDays(year, month, firstDay, daysInMonth, events)}
                         </div>
                     </div>
                 `;
-                target.innerHTML = calendarHtml;
+                lucide.createIcons();
             },
 
             calculateCalendarDays: (year, month, firstDay, daysInMonth, events) => {
                 let html = '';
                 const today = new Date().toISOString().split('T')[0];
-
-                // Pre-padding logic
                 const prevMonthDays = new Date(year, month, 0).getDate();
-                for (let i = firstDay; i > 0; i--) {
-                    html += `<div class="calendar-cell other-month flex flex-col"><span class="text-xs font-bold opacity-30">${prevMonthDays - i + 1}</span></div>`;
-                }
-
-                // Month days
+                for (let i = firstDay; i > 0; i--) html += `<div class="calendar-cell other-month flex flex-col"><span class="text-xs font-bold opacity-30">${prevMonthDays - i + 1}</span></div>`;
                 for (let day = 1; day <= daysInMonth; day++) {
                     const dateId = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
                     const dayEvents = events.filter(e => e.start.startsWith(dateId));
                     const isToday = dateId === today;
-
-                    html += `
-                        <div class="calendar-cell ${isToday ? 'today' : ''} flex flex-col group overflow-hidden">
-                            <div class="flex justify-between items-center mb-2">
-                                <span class="day-label text-xs font-bold text-slate-700">${day}</span>
-                                <button onclick="ui.modal.openQuickAdd()" class="opacity-0 group-hover:opacity-100 transition-opacity text-slate-300 hover:text-indigo-600"><i data-lucide="plus" class="w-3 h-3"></i></button>
-                            </div>
-                            <div class="flex-1 space-y-1 overflow-y-auto hide-scrollbar">
-                                ${dayEvents.map(e => `<div class="event-chip bg-indigo-600 text-white font-medium">${e.title}</div>`).join('')}
-                            </div>
-                        </div>
-                    `;
+                    html += `<div class="calendar-cell ${isToday ? 'today' : ''} flex flex-col group overflow-hidden"><div class="flex justify-between items-center mb-2"><span class="day-label text-xs font-bold text-slate-700">${day}</span></div><div class="flex-1 space-y-1 overflow-y-auto hide-scrollbar">${dayEvents.map(e => `<div class="event-chip bg-indigo-600 text-white font-medium">${e.title}</div>`).join('')}</div></div>`;
                 }
                 return html;
             },
 
-            changeMonth: (offset) => {
-                state.currentCalendarDate.setMonth(state.currentCalendarDate.getMonth() + offset);
-                router.load('events');
-            },
+            changeMonth: (offset) => { state.currentCalendarDate.setMonth(state.currentCalendarDate.getMonth() + offset); router.load('events'); },
 
             tasks: async (target) => {
                 const tasks = await db.tasks.toArray();
-                const grouped = {
-                    pending: tasks.filter(t => t.status !== 'done'),
-                    completed: tasks.filter(t => t.status === 'done')
-                };
-
+                const grouped = { pending: tasks.filter(t => t.status !== 'done'), completed: tasks.filter(t => t.status === 'done') };
                 target.innerHTML = `
-                    <div class="max-w-4xl mx-auto space-y-10">
-                        <section>
-                            <h3 class="text-xs font-black uppercase text-slate-400 tracking-widest mb-6">Active Tasks</h3>
-                            <div class="space-y-3">
-                                ${grouped.pending.map(t => `
-                                    <div class="bg-white p-6 rounded-3xl border border-slate-200 flex items-center justify-between group">
-                                        <div class="flex items-center gap-6">
-                                            <input type="checkbox" onchange="logic.toggleTask(${t.id})" class="w-6 h-6">
-                                            <div>
-                                                <p class="font-bold text-slate-800">${t.title}</p>
-                                                <p class="text-[10px] font-bold text-slate-400 mt-1 uppercase tracking-tighter">Due: ${t.dueDate} • Priority: ${t.priority}</p>
-                                            </div>
-                                        </div>
-                                        <button onclick="logic.deleteData('tasks', ${t.id})" class="text-slate-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all"><i data-lucide="trash-2" class="w-5 h-5"></i></button>
-                                    </div>
-                                `).join('') || `<p class="text-slate-400 italic py-10 text-center">No pending tasks. Start something!</p>`}
-                            </div>
-                        </section>
-
-                        <section class="opacity-50">
-                            <h3 class="text-xs font-black uppercase text-slate-400 tracking-widest mb-6">Completed</h3>
-                            <div class="space-y-2">
-                                ${grouped.completed.map(t => `<div class="bg-slate-50 p-4 rounded-2xl border border-slate-100 flex items-center gap-4"><i data-lucide="check" class="w-4 h-4 text-green-500"></i> <span class="text-sm font-medium line-through">${t.title}</span></div>`).join('')}
-                            </div>
-                        </section>
-                    </div>
+                    <div class="max-w-4xl mx-auto space-y-10"><section><h3 class="text-xs font-black uppercase text-slate-400 tracking-widest mb-6">Active Tasks</h3><div class="space-y-3">
+                    ${grouped.pending.map(t => `<div class="bg-white p-6 rounded-3xl border border-slate-200 flex items-center justify-between group"><div class="flex items-center gap-6"><input type="checkbox" onchange="logic.toggleTask(${t.id})" class="w-6 h-6"><div><p class="font-bold text-slate-800">${t.title}</p><p class="text-[10px] font-bold text-slate-400 mt-1 uppercase tracking-tighter">Due: ${t.dueDate} • Priority: ${t.priority}</p></div></div><button onclick="logic.deleteData('tasks', ${t.id})" class="text-slate-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all"><i data-lucide="trash-2" class="w-5 h-5"></i></button></div>`).join('') || `<p class="text-slate-400 italic py-10 text-center">No pending tasks.</p>`}
+                    </div></section><section class="opacity-50"><h3 class="text-xs font-black uppercase text-slate-400 tracking-widest mb-6">Completed</h3><div class="space-y-2">${grouped.completed.map(t => `<div class="bg-slate-50 p-4 rounded-2xl border border-slate-100 flex items-center gap-4"><i data-lucide="check" class="w-4 h-4 text-green-500"></i> <span class="text-sm font-medium line-through">${t.title}</span></div>`).join('')}</div></section></div>
                 `;
+                lucide.createIcons();
             },
 
             settings: (target) => {
                 target.innerHTML = `
-                    <div class="max-w-3xl mx-auto space-y-12">
-                        <section>
-                            <h3 class="text-sm font-black uppercase tracking-widest text-slate-400 mb-6 flex items-center gap-2"><i data-lucide="tool" class="w-4 h-4"></i> Feature Management</h3>
-                            <div class="bg-white rounded-[2rem] shadow-sm border border-slate-200 divide-y overflow-hidden">
-                                ${Object.keys(state.config.features).map(key => `
-                                    <div class="p-6 flex items-center justify-between hover:bg-slate-50 transition-colors">
-                                        <div class="flex items-center gap-4">
-                                            <div class="w-10 h-10 bg-slate-100 rounded-xl flex items-center justify-center text-slate-500"><i data-lucide="${FEATURE_META[key].icon}" class="w-5 h-5"></i></div>
-                                            <div><p class="font-bold text-slate-700 capitalize">${key}</p><p class="text-xs text-slate-400">Enable or disable the ${key} module globally.</p></div>
-                                        </div>
-                                        <button onclick="logic.toggleFeature('${key}')" class="w-14 h-8 rounded-full relative transition-all ${state.config.features[key] ? 'bg-indigo-600' : 'bg-slate-300'}">
-                                            <div class="w-6 h-6 bg-white rounded-full absolute top-1 transition-all ${state.config.features[key] ? 'right-1' : 'left-1'}"></div>
-                                        </button>
-                                    </div>
-                                `).join('')}
-                            </div>
-                        </section>
-
-                        <section>
-                            <h3 class="text-sm font-black uppercase tracking-widest text-slate-400 mb-6 flex items-center gap-2"><i data-lucide="cpu" class="w-4 h-4"></i> Automation Rules</h3>
-                             <div class="bg-white rounded-[2rem] shadow-sm border border-slate-200 p-8 space-y-6">
-                                <div class="flex items-center justify-between">
-                                    <p class="font-bold text-sm text-slate-600">Auto-Carryover Overdue Tasks</p>
-                                    <input type="checkbox" onchange="logic.updateConfig('autoCarryover', this.checked)" ${state.config.automation.autoCarryover ? 'checked' : ''}>
-                                </div>
-                             </div>
-                        </section>
-
-                        <section>
-                             <h3 class="text-sm font-black uppercase tracking-widest text-slate-400 mb-6 flex items-center gap-2"><i data-lucide="database" class="w-4 h-4"></i> Portability & Data</h3>
-                             <div class="grid grid-cols-2 gap-4">
-                                <button onclick="logic.exportData()" class="p-6 bg-white border border-slate-200 rounded-3xl font-bold flex flex-col items-center gap-4 hover:border-indigo-500 transition-all">
-                                    <i data-lucide="download" class="w-8 h-8 text-indigo-600"></i> Export JSON Backup
-                                </button>
-                                <button onclick="logic.factoryReset()" class="p-6 bg-red-50 border border-red-100 rounded-3xl font-bold text-red-600 flex flex-col items-center gap-4 hover:bg-red-100 transition-all">
-                                    <i data-lucide="trash-2" class="w-8 h-8"></i> Wipe Local Database
-                                </button>
-                             </div>
-                        </section>
-                    </div>
+                    <div class="max-w-3xl mx-auto space-y-12"><section><h3 class="text-sm font-black uppercase tracking-widest text-slate-400 mb-6 flex items-center gap-2"><i data-lucide="tool" class="w-4 h-4"></i> Feature Management</h3><div class="bg-white rounded-[2rem] shadow-sm border border-slate-200 divide-y overflow-hidden">
+                    ${Object.keys(state.config.features).map(key => `<div class="p-6 flex items-center justify-between hover:bg-slate-50 transition-colors"><div class="flex items-center gap-4"><div class="w-10 h-10 bg-slate-100 rounded-xl flex items-center justify-center text-slate-500"><i data-lucide="${FEATURE_META[key].icon}" class="w-5 h-5"></i></div><div><p class="font-bold text-slate-700 capitalize">${key}</p><p class="text-xs text-slate-400">Enable or disable the ${key} module.</p></div></div><button onclick="logic.toggleFeature('${key}')" class="w-14 h-8 rounded-full relative transition-all ${state.config.features[key] ? 'bg-indigo-600' : 'bg-slate-300'}"><div class="w-6 h-6 bg-white rounded-full absolute top-1 transition-all ${state.config.features[key] ? 'right-1' : 'left-1'}"></div></button></div>`).join('')}
+                    </div></section><section><h3 class="text-sm font-black uppercase tracking-widest text-slate-400 mb-6 flex items-center gap-2"><i data-lucide="cpu" class="w-4 h-4"></i> Automation Rules</h3><div class="bg-white rounded-[2rem] shadow-sm border border-slate-200 p-8 space-y-6"><div class="flex items-center justify-between"><p class="font-bold text-sm text-slate-600">Auto-Carryover Overdue Tasks</p><input type="checkbox" onchange="logic.updateConfig('autoCarryover', this.checked)" ${state.config.automation.autoCarryover ? 'checked' : ''}></div></div></section><section><h3 class="text-sm font-black uppercase tracking-widest text-slate-400 mb-6 flex items-center gap-2"><i data-lucide="database" class="w-4 h-4"></i> Portability & Data</h3><div class="grid grid-cols-2 gap-4"><button onclick="logic.exportData()" class="p-6 bg-white border border-slate-200 rounded-3xl font-bold flex flex-col items-center gap-4 hover:border-indigo-500 transition-all"><i data-lucide="download" class="w-8 h-8 text-indigo-600"></i> Export Backup</button><button onclick="logic.factoryReset()" class="p-6 bg-red-50 border border-red-100 rounded-3xl font-bold text-red-600 flex flex-col items-center gap-4 hover:bg-red-100 transition-all"><i data-lucide="trash-2" class="w-8 h-8"></i> Wipe Database</button></div></section></div>
                 `;
+                lucide.createIcons();
             },
 
             projects: async (target) => {
                 const projs = await db.projects.toArray();
-                target.innerHTML = `<div class="grid grid-cols-1 md:grid-cols-2 gap-8">
-                    ${projs.map(p => `
-                        <div class="bg-white p-8 rounded-3xl shadow-sm border border-slate-200 flex flex-col">
-                            <h4 class="text-xl font-bold mb-6">${p.name}</h4>
-                            <div class="mt-auto">
-                                <div class="flex justify-between text-[10px] font-black text-slate-400 uppercase mb-2"><span>Completion</span><span>${p.progress}%</span></div>
-                                <div class="w-full h-2 bg-slate-100 rounded-full overflow-hidden"><div class="bg-indigo-600 h-full transition-all" style="width: ${p.progress}%"></div></div>
-                                <div class="flex gap-2 mt-8">
-                                    <button onclick="logic.updateProjectProgress(${p.id}, 10)" class="flex-1 py-3 text-xs font-bold bg-slate-50 border border-slate-100 rounded-xl hover:bg-slate-100">+10%</button>
-                                    <button onclick="logic.deleteData('projects', ${p.id})" class="p-3 text-red-500 hover:bg-red-50 rounded-xl transition-all"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
-                                </div>
-                            </div>
-                        </div>
-                    `).join('')}
-                </div>`;
+                target.innerHTML = `<div class="grid grid-cols-1 md:grid-cols-2 gap-8">${projs.map(p => `<div class="bg-white p-8 rounded-3xl shadow-sm border border-slate-200 flex flex-col"><h4 class="text-xl font-bold mb-6">${p.name}</h4><div class="mt-auto"><div class="flex justify-between text-[10px] font-black text-slate-400 uppercase mb-2"><span>Completion</span><span>${p.progress}%</span></div><div class="w-full h-2 bg-slate-100 rounded-full overflow-hidden"><div class="bg-indigo-600 h-full transition-all" style="width: ${p.progress}%"></div></div><div class="flex gap-2 mt-8"><button onclick="logic.updateProjectProgress(${p.id}, 10)" class="flex-1 py-3 text-xs font-bold bg-slate-50 border border-slate-100 rounded-xl hover:bg-slate-100">+10%</button><button onclick="logic.deleteData('projects', ${p.id})" class="p-3 text-red-500 hover:bg-red-50 rounded-xl transition-all"><i data-lucide="trash-2" class="w-4 h-4"></i></button></div></div></div>`).join('')}</div>`;
+                lucide.createIcons();
             },
 
             habits: async (target) => {
                 const list = await db.habits.toArray();
+                // NEW FEATURE: Added Delete and Reset buttons
                 target.innerHTML = `<div class="grid grid-cols-1 md:grid-cols-3 gap-6">
                     ${list.map(h => `
-                        <div class="bg-white p-8 rounded-[2rem] shadow-sm border border-slate-200 flex flex-col items-center text-center">
+                        <div class="bg-white p-8 rounded-[2rem] shadow-sm border border-slate-200 flex flex-col items-center text-center relative group">
+                            <button onclick="logic.deleteData('habits', ${h.id})" class="absolute top-4 right-4 text-slate-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all"><i data-lucide="x" class="w-5 h-5"></i></button>
                             <h4 class="font-bold text-slate-700 mb-4">${h.name}</h4>
                             <div class="text-5xl font-black text-indigo-600 mb-1">${h.streak}</div>
                             <p class="text-[10px] font-black uppercase text-slate-400 tracking-widest mb-8">Current Streak</p>
-                            <button onclick="logic.incrementHabit(${h.id})" class="w-full py-4 bg-indigo-600 text-white font-black rounded-2xl shadow-xl shadow-indigo-100 hover:scale-105 active:scale-95 transition-all">+ Add Logging</button>
+                            <div class="w-full flex gap-2">
+                                <button onclick="logic.incrementHabit(${h.id})" class="flex-1 py-4 bg-indigo-600 text-white font-black rounded-2xl shadow-xl shadow-indigo-100 hover:scale-105 active:scale-95 transition-all">+ Log</button>
+                                <button onclick="logic.resetHabit(${h.id})" class="p-4 bg-slate-50 border rounded-2xl text-slate-400 hover:text-orange-500 transition-all" title="Reset Streak"><i data-lucide="refresh-ccw" class="w-5 h-5"></i></button>
+                            </div>
                         </div>
                     `).join('')}
                 </div>`;
+                lucide.createIcons();
             },
 
             school: async (target) => {
                 const classes = await db.school.toArray();
-                const tasks = await db.tasks.where('classId').notEqual(null).toArray();
+                // NEW FEATURE: Fixed Education tab hang/loading-only
+                const tasks = await db.tasks.toArray(); 
                 target.innerHTML = `
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-10">
                         <section class="space-y-6">
                             <h3 class="text-xs font-black uppercase text-slate-400 tracking-widest">Active Classes</h3>
-                            ${classes.map(c => `<div class="bg-indigo-900 text-white p-6 rounded-3xl shadow-xl overflow-hidden relative">
+                            ${classes.map(c => `<div class="bg-indigo-900 text-white p-6 rounded-3xl shadow-xl overflow-hidden relative group">
                                 <i data-lucide="graduation-cap" class="absolute -right-4 -bottom-4 w-24 h-24 opacity-10"></i>
-                                <h4 class="text-lg font-bold mb-1">${c.className}</h4>
-                                <p class="text-xs opacity-60 font-medium">${c.instructor}</p>
-                            </div>`).join('')}
+                                <div class="relative z-10">
+                                    <h4 class="text-lg font-bold mb-1">${c.className}</h4>
+                                    <p class="text-xs opacity-60 font-medium">${c.instructor || 'No Instructor'}</p>
+                                    <button onclick="logic.deleteData('school', ${c.id})" class="mt-4 text-[10px] uppercase font-bold text-white/40 hover:text-white transition-opacity">Remove</button>
+                                </div>
+                            </div>`).join('') || '<p class="text-slate-400 italic">No classes found.</p>'}
                         </section>
                         <section class="space-y-4">
                             <h3 class="text-xs font-black uppercase text-slate-400 tracking-widest">School Assignments</h3>
                             <div class="space-y-2">
-                                ${tasks.filter(t => t.classId).map(t => `<div class="p-4 bg-white border border-slate-200 rounded-2xl text-sm font-bold">${t.title}</div>`).join('')}
+                                ${tasks.filter(t => t.classId).map(t => `<div class="p-4 bg-white border border-slate-200 rounded-2xl text-sm font-bold">${t.title}</div>`).join('') || '<p class="text-slate-400 italic">No assignments.</p>'}
                             </div>
                         </section>
                     </div>
                 `;
+                lucide.createIcons();
             },
 
             extra: async (target) => {
                 const extras = await db.extra.toArray();
-                target.innerHTML = `<div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    ${extras.map(e => `<div class="bg-white p-6 rounded-3xl shadow-sm border border-slate-200 flex justify-between items-center"><span class="font-bold text-slate-700">${e.name}</span> <button onclick="logic.deleteData('extra', ${e.id})" class="text-red-400"><i data-lucide="trash-2" class="w-5 h-5"></i></button></div>`).join('')}
-                </div>`;
+                target.innerHTML = `<div class="grid grid-cols-1 md:grid-cols-2 gap-6">${extras.map(e => `<div class="bg-white p-6 rounded-3xl shadow-sm border border-slate-200 flex justify-between items-center group"><span class="font-bold text-slate-700">${e.name}</span> <button onclick="logic.deleteData('extra', ${e.id})" class="text-slate-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all"><i data-lucide="trash-2" class="w-5 h-5"></i></button></div>`).join('')}</div>`;
+                lucide.createIcons();
             }
         };
 
@@ -685,15 +594,10 @@
         const automation = {
             runner: async () => {
                 if (!state.config.automation.autoCarryover) return;
-                
                 const today = new Date().toISOString().split('T')[0];
                 const overdue = await db.tasks.where('dueDate').below(today).and(t => t.status !== 'done').toArray();
-                
                 if (overdue.length > 0) {
-                    console.log(`Automation: Moving ${overdue.length} overdue tasks to today.`);
-                    for (let task of overdue) {
-                        await db.tasks.update(task.id, { dueDate: today });
-                    }
+                    for (let task of overdue) await db.tasks.update(task.id, { dueDate: today });
                 }
             }
         };
@@ -706,12 +610,9 @@
                 e.preventDefault();
                 const fd = new FormData(e.target);
                 const data = Object.fromEntries(fd.entries());
-                
-                // Defaults
                 if(key === 'tasks') { data.status = 'pending'; data.createdAt = Date.now(); }
                 if(key === 'projects') { data.progress = 0; data.status = 'active'; }
                 if(key === 'habits') { data.streak = 0; data.logs = []; }
-                
                 await db[key].add(data);
                 ui.modal.close();
                 router.load(state.currentView);
@@ -727,6 +628,14 @@
                 const habit = await db.habits.get(id);
                 await db.habits.update(id, { streak: (habit.streak || 0) + 1 });
                 router.load('habits');
+            },
+
+            // NEW FEATURE: Reset habit streak
+            resetHabit: async (id) => {
+                if(confirm("Reset this habit streak to zero?")) {
+                    await db.habits.update(id, { streak: 0 });
+                    router.load('habits');
+                }
             },
 
             updateProjectProgress: async (id, inc) => {
@@ -755,24 +664,20 @@
                 logic.saveConfig();
             },
 
-            saveConfig: () => {
-                localStorage.setItem('app_config', JSON.stringify(state.config));
-            },
+            saveConfig: () => localStorage.setItem('app_config', JSON.stringify(state.config)),
 
             exportData: async () => {
                 const results = {};
-                for (const table of db.tables) {
-                    results[table.name] = await table.toArray();
-                }
+                for (const table of db.tables) results[table.name] = await table.toArray();
                 const blob = new Blob([JSON.stringify(results, null, 2)], { type: 'application/json' });
                 const a = document.createElement('a');
                 a.href = URL.createObjectURL(blob);
-                a.download = `planner_backup_${new Date().getTime()}.json`;
+                a.download = `backup_${new Date().getTime()}.json`;
                 a.click();
             },
 
             factoryReset: async () => {
-                if(confirm("DANGER: This will delete ALL local data. Proceed?")) {
+                if(confirm("Factory reset? This deletes all data.")) {
                     await db.delete();
                     localStorage.clear();
                     window.location.reload();
@@ -780,9 +685,7 @@
             }
         };
 
-        // Bootstrap App
         window.onload = ui.init;
-
     </script>
 </body>
 </html>
