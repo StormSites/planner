@@ -3,435 +3,786 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Command Center | Privacy Planner</title>
+    <title>Command Center | Local-First Planner</title>
+    <!-- Dependencies -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/dexie/dist/dexie.js"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
     <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
+    
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap');
-        body { font-family: 'Plus Jakarta Sans', sans-serif; background: #f8f9fa; color: #1a1a1a; }
-        .sidebar-active { background: #f3f4f6; color: #000; border-right: 3px solid #000; }
-        .widget-ghost { opacity: 0.4; background: #e5e7eb; }
+        
+        :root {
+            --brand-primary: #6366f1;
+            --brand-bg: #f8fafc;
+        }
+
+        body {
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            background-color: var(--brand-bg);
+            color: #1e293b;
+        }
+
+        /* Sidebar State */
+        .nav-active {
+            background: #eff6ff;
+            color: #2563eb;
+            font-weight: 600;
+            border-right: 3px solid #2563eb;
+        }
+
+        /* Dashboard Widget Transitions */
+        .widget-ghost {
+            opacity: 0.3;
+            background: #e2e8f0;
+        }
+
+        /* Google Calendar Grid Styles */
+        .calendar-grid {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            border-top: 1px solid #e2e8f0;
+            border-left: 1px solid #e2e8f0;
+        }
+
+        .calendar-cell {
+            min-height: 120px;
+            background: white;
+            border-right: 1px solid #e2e8f0;
+            border-bottom: 1px solid #e2e8f0;
+            padding: 8px;
+            transition: background 0.2s;
+        }
+
+        .calendar-cell:hover {
+            background: #fdfdfd;
+        }
+
+        .calendar-cell.other-month {
+            background: #f1f5f9;
+            color: #94a3b8;
+        }
+
+        .calendar-cell.today {
+            background: #f0f9ff;
+        }
+
+        .calendar-cell.today .day-label {
+            background: #2563eb;
+            color: white;
+            border-radius: 999px;
+            width: 24px;
+            height: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .event-chip {
+            font-size: 10px;
+            padding: 2px 6px;
+            border-radius: 4px;
+            margin-bottom: 2px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            cursor: pointer;
+        }
+
+        /* Scrollbar styling */
         .hide-scrollbar::-webkit-scrollbar { display: none; }
         .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+        /* Dashboard Modes */
+        .minimal-mode .widget-header { display: none; }
+        .minimal-mode .widget-card { border: none; box-shadow: none; background: transparent; padding: 0.5rem 0; }
         
-        /* Calendar Styles */
-        .calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); border-top: 1px solid #e2e8f0; border-left: 1px solid #e2e8f0; }
-        .calendar-day { min-height: 120px; padding: 0.5rem; border-right: 1px solid #e2e8f0; border-bottom: 1px solid #e2e8f0; background: white; }
-        .calendar-day-header { background: #f1f5f9; padding: 0.5rem; border-right: 1px solid #e2e8f0; border-bottom: 1px solid #e2e8f0; text-align: center; font-size: 0.75rem; font-weight: 700; color: #64748b; text-transform: uppercase; }
-        .today { background: #f8fafc; }
-        .today .day-num { background: black; color: white; border-radius: 999px; width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; }
-        .other-month { color: #cbd5e1; background: #fcfdfe; }
-        
-        .card { background: white; border: 1px solid #e2e8f0; border-radius: 1rem; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
-        .btn-primary { background: black; color: white; transition: all 0.2s; }
-        .btn-primary:hover { background: #222; transform: translateY(-1px); }
+        /* Custom Checkbox */
+        input[type="checkbox"] {
+            width: 1.2rem;
+            height: 1.2rem;
+            accent-color: #2563eb;
+            cursor: pointer;
+        }
     </style>
 </head>
-<body>
-    <div id="app" class="flex h-screen overflow-hidden">
-        <!-- Sidebar -->
-        <aside class="w-64 bg-white border-r flex flex-col shrink-0 overflow-y-auto hide-scrollbar">
-            <div class="p-6">
-                <div class="flex items-center gap-2 mb-8">
-                    <div class="w-8 h-8 rounded-lg bg-black flex items-center justify-center text-white">
-                        <i data-lucide="shield-check" class="w-5 h-5"></i>
-                    </div>
-                    <h1 class="font-bold text-xl tracking-tight">Planner</h1>
+<body class="overflow-hidden">
+
+    <div id="app" class="flex h-screen w-full">
+        <!-- Main Sidebar -->
+        <aside id="sidebar" class="w-72 bg-white border-r flex flex-col shrink-0">
+            <div class="p-8 flex items-center gap-3">
+                <div class="w-10 h-10 bg-indigo-600 rounded-xl flex items-center justify-center text-white shadow-lg shadow-indigo-200">
+                    <i data-lucide="layout-dashboard" class="w-6 h-6"></i>
                 </div>
-                
-                <nav id="sidebar-nav" class="space-y-1">
-                    <!-- Nav items injected based on enabled features -->
-                </nav>
+                <h1 class="text-xl font-extrabold tracking-tight">Planner Pro</h1>
             </div>
 
-            <div class="mt-auto p-4 border-t bg-slate-50/50">
-                <button onclick="setView('settings')" id="nav-settings" class="w-full flex items-center gap-3 px-3 py-2 text-sm font-medium rounded-lg text-slate-500 hover:bg-slate-50 transition-all">
-                    <i data-lucide="settings" class="w-4 h-4"></i> Settings
+            <nav id="nav-container" class="flex-1 px-4 space-y-1 overflow-y-auto hide-scrollbar">
+                <!-- Nav items generated dynamically -->
+            </nav>
+
+            <div class="p-6 border-t mt-auto">
+                <button onclick="router.navigate('settings')" id="nav-settings" class="w-full flex items-center gap-3 px-4 py-3 text-sm font-medium text-slate-500 hover:bg-slate-50 rounded-xl transition-all">
+                    <i data-lucide="settings" class="w-5 h-5"></i> Settings
                 </button>
+                <div class="mt-4 px-4 py-3 bg-slate-50 rounded-xl">
+                    <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Local Privacy</p>
+                    <p class="text-xs text-slate-500 mt-1">No Cloud. No Backend.</p>
+                </div>
             </div>
         </aside>
 
-        <!-- Main Wrapper -->
-        <main class="flex-1 flex flex-col min-w-0 overflow-hidden">
-            <header class="h-16 bg-white border-b px-8 flex items-center justify-between shrink-0 z-20">
-                <div class="flex items-center gap-4">
-                    <h2 id="page-title" class="text-lg font-bold text-slate-800">Command Center</h2>
+        <!-- Content Area -->
+        <main class="flex-1 flex flex-col min-w-0 bg-slate-50">
+            <header class="h-20 bg-white border-b px-10 flex items-center justify-between shrink-0 z-10">
+                <div class="flex flex-col">
+                    <h2 id="view-title" class="text-xl font-bold text-slate-800">Command Center</h2>
+                    <p id="view-subtitle" class="text-xs text-slate-400 font-medium"></p>
                 </div>
+
                 <div class="flex items-center gap-6">
-                    <div id="clock" class="text-xs font-bold text-slate-400 tracking-wider"></div>
-                    <button onclick="openQuickAdd()" class="btn-primary px-5 py-2 rounded-full text-xs font-bold flex items-center gap-2 shadow-lg shadow-black/10">
-                        <i data-lucide="plus" class="w-4 h-4"></i> Quick Add
+                    <div id="clock-display" class="text-right hidden md:block">
+                        <div id="clock-time" class="text-sm font-bold text-slate-700"></div>
+                        <div id="clock-date" class="text-[10px] font-bold text-slate-400 uppercase tracking-tighter"></div>
+                    </div>
+                    <button onclick="ui.modal.openQuickAdd()" class="bg-indigo-600 text-white px-6 py-2.5 rounded-full text-sm font-bold shadow-lg shadow-indigo-100 hover:scale-105 active:scale-95 transition-all flex items-center gap-2">
+                        <i data-lucide="plus" class="w-4 h-4"></i> New Entry
                     </button>
                 </div>
             </header>
 
-            <div id="viewport" class="flex-1 overflow-y-auto p-8 scroll-smooth bg-slate-50">
-                <!-- Content -->
+            <div id="viewport" class="flex-1 overflow-y-auto p-10 scroll-smooth">
+                <!-- Data views injected here -->
             </div>
         </main>
     </div>
 
-    <!-- Modals -->
-    <div id="modal-overlay" class="hidden fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-        <div id="modal-card" class="bg-white rounded-3xl shadow-2xl max-w-lg w-full max-h-[90vh] flex flex-col overflow-hidden">
-            <div class="p-6 border-b flex justify-between items-center bg-white sticky top-0">
-                <h3 id="modal-title" class="font-bold text-xl">Quick Add</h3>
-                <button onclick="closeModal()" class="p-2 hover:bg-slate-100 rounded-full transition-colors"><i data-lucide="x" class="w-5 h-5"></i></button>
+    <!-- Universal Modal System -->
+    <div id="modal-overlay" class="hidden fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div id="modal-container" class="bg-white rounded-3xl shadow-2xl max-w-2xl w-full max-h-[90vh] flex flex-col overflow-hidden animate-in fade-in zoom-in duration-200">
+            <div class="p-8 border-b flex justify-between items-center bg-white sticky top-0">
+                <div class="flex flex-col">
+                    <h3 id="modal-title" class="text-2xl font-bold">Quick Add</h3>
+                    <p id="modal-subtitle" class="text-sm text-slate-400 font-medium"></p>
+                </div>
+                <button onclick="ui.modal.close()" class="p-3 hover:bg-slate-100 rounded-full transition-colors text-slate-400"><i data-lucide="x" class="w-6 h-6"></i></button>
             </div>
-            <div id="modal-body" class="p-8 overflow-y-auto"></div>
+            <div id="modal-body" class="p-8 overflow-y-auto bg-slate-50/30">
+                <!-- Form content -->
+            </div>
         </div>
     </div>
 
+    <!-- 
+    ================================================================
+    JAVASCRIPT LOGIC
+    ================================================================
+    -->
     <script>
-        // --- Database ---
-        const db = new Dexie("PlannerProDB");
+        /** 
+         * 1. DATABASE LAYER 
+         * Using Dexie.js for IndexedDB management. All data is strictly local.
+         */
+        const db = new Dexie("PlannerCompleteStorage");
         db.version(1).stores({
-            tasks: '++id, title, status, priority, dueDate, classId, projectId',
-            projects: '++id, name, status, deadline, progress',
-            school: '++id, className, schedule',
-            assignments: '++id, title, classId, dueDate, status',
-            events: '++id, title, start, end, category',
-            habits: '++id, name, streak, logs',
-            extra: '++id, name, role',
-            settings: 'key, value'
+            tasks: '++id, title, status, priority, dueDate, section, projectId, classId, isRecurring',
+            projects: '++id, name, status, progress, deadline',
+            school: '++id, className, instructor, semester',
+            assignments: '++id, title, classId, dueDate, status, weight',
+            events: '++id, title, start, end, location, category',
+            habits: '++id, name, streak, logs, goal',
+            extra: '++id, name, role, hours',
+            settings: 'key, value',
+            backups: '++id, timestamp'
         });
 
-        // --- Auth/State ---
-        let currentView = 'dashboard';
-        let calendarDate = new Date();
-        let config = JSON.parse(localStorage.getItem('planner_config')) || {
-            enabledFeatures: {
-                tasks: true,
-                projects: true,
-                school: true,
-                habits: true,
-                events: true,
-                extra: true
+        /**
+         * 2. STATE & CONFIGURATION 
+         */
+        const state = {
+            currentView: 'dashboard',
+            currentCalendarDate: new Date(),
+            dashboardLayout: JSON.parse(localStorage.getItem('dashboard_layout')) || ['tasks', 'schedule', 'habits', 'projects', 'school'],
+            config: JSON.parse(localStorage.getItem('app_config')) || {
+                dashboardMode: 'command', // command, minimal, dynamic
+                features: {
+                    tasks: true,
+                    projects: true,
+                    school: true,
+                    habits: true,
+                    events: true,
+                    extra: true
+                },
+                automation: {
+                    autoCarryover: true,
+                    smartSort: true
+                }
+            }
+        };
+
+        const FEATURE_META = {
+            dashboard: { id: 'dashboard', label: 'Command Center', icon: 'home' },
+            tasks: { id: 'tasks', label: 'Daily Tasks', icon: 'check-square' },
+            projects: { id: 'projects', label: 'Projects', icon: 'briefcase' },
+            school: { id: 'school', label: 'Education', icon: 'graduation-cap' },
+            habits: { id: 'habits', label: 'Habits', icon: 'flame' },
+            events: { id: 'events', label: 'Calendar', icon: 'calendar' },
+            extra: { id: 'extra', label: 'Activities', icon: 'star' }
+        };
+
+        /**
+         * 3. UI CONTROLLER 
+         */
+        const ui = {
+            init: async () => {
+                ui.refreshNavigation();
+                ui.updateClock();
+                setInterval(ui.updateClock, 1000);
+                await automation.runner();
+                router.load('dashboard');
             },
-            dashboardMode: 'command',
-            autoCarryover: true
+
+            refreshNavigation: () => {
+                const nav = document.getElementById('nav-container');
+                let html = `
+                    <button onclick="router.navigate('dashboard')" id="nav-dashboard" class="w-full flex items-center gap-3 px-4 py-3 text-sm font-medium rounded-xl transition-all">
+                        <i data-lucide="home" class="w-5 h-5"></i> Dashboard
+                    </button>
+                    <div class="pt-6 pb-2 px-4 text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em]">Personal Modules</div>
+                `;
+
+                Object.keys(state.config.features).forEach(key => {
+                    if (state.config.features[key]) {
+                        const meta = FEATURE_META[key];
+                        html += `
+                            <button onclick="router.navigate('${key}')" id="nav-${key}" class="w-full flex items-center gap-3 px-4 py-3 text-sm font-medium text-slate-500 hover:bg-slate-50 rounded-xl transition-all">
+                                <i data-lucide="${meta.icon}" class="w-5 h-5"></i> ${meta.label}
+                            </button>
+                        `;
+                    }
+                });
+
+                nav.innerHTML = html;
+                lucide.createIcons();
+            },
+
+            updateClock: () => {
+                const now = new Date();
+                const clockTime = document.getElementById('clock-time');
+                const clockDate = document.getElementById('clock-date');
+                if (!clockTime) return;
+
+                clockTime.innerText = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true });
+                clockDate.innerText = now.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' });
+            },
+
+            modal: {
+                open: (title, subtitle, bodyHtml) => {
+                    document.getElementById('modal-title').innerText = title;
+                    document.getElementById('modal-subtitle').innerText = subtitle;
+                    document.getElementById('modal-body').innerHTML = bodyHtml;
+                    document.getElementById('modal-overlay').classList.remove('hidden');
+                    lucide.createIcons();
+                },
+                close: () => {
+                    document.getElementById('modal-overlay').classList.add('hidden');
+                },
+                openQuickAdd: () => {
+                    const enabled = Object.keys(state.config.features).filter(f => state.config.features[f]);
+                    let html = `<div class="grid grid-cols-2 gap-4">`;
+                    enabled.forEach(key => {
+                        html += `
+                            <button onclick="ui.modal.renderForm('${key}')" class="flex flex-col items-start p-6 bg-white border border-slate-200 rounded-3xl hover:border-indigo-500 hover:bg-indigo-50/50 transition-all group">
+                                <i data-lucide="${FEATURE_META[key].icon}" class="w-6 h-6 text-slate-400 group-hover:text-indigo-600 mb-4 transition-colors"></i>
+                                <span class="font-bold text-slate-700">${FEATURE_META[key].label}</span>
+                                <span class="text-[10px] text-slate-400 font-bold uppercase tracking-wider mt-1">Create New</span>
+                            </button>
+                        `;
+                    });
+                    html += `</div>`;
+                    ui.modal.open("New Entry", "Choose what you want to add to your planner", html);
+                },
+                renderForm: (key) => {
+                    let formHtml = `<form onsubmit="logic.handleForm(event, '${key}')" class="space-y-6">`;
+                    
+                    switch(key) {
+                        case 'tasks':
+                            formHtml += `
+                                <div><label class="block text-xs font-black uppercase text-slate-400 mb-2">Title</label><input name="title" required class="w-full p-4 bg-white border border-slate-200 rounded-2xl outline-none focus:ring-2 focus:ring-indigo-500" placeholder="e.g. Finish quarterly report"></div>
+                                <div class="grid grid-cols-2 gap-4">
+                                    <div><label class="block text-xs font-black uppercase text-slate-400 mb-2">Priority</label>
+                                        <select name="priority" class="w-full p-4 bg-white border border-slate-200 rounded-2xl"><option value="1">Low</option><option value="2" selected>Medium</option><option value="3">High</option></select>
+                                    </div>
+                                    <div><label class="block text-xs font-black uppercase text-slate-400 mb-2">Due Date</label><input type="date" name="dueDate" class="w-full p-4 bg-white border border-slate-200 rounded-2xl" value="${new Date().toISOString().split('T')[0]}"></div>
+                                </div>
+                            `;
+                            break;
+                        case 'events':
+                            formHtml += `
+                                <div><label class="block text-xs font-black uppercase text-slate-400 mb-2">Event Title</label><input name="title" required class="w-full p-4 bg-white border border-slate-200 rounded-2xl outline-none focus:ring-2 focus:ring-indigo-500"></div>
+                                <div class="grid grid-cols-2 gap-4">
+                                    <div><label class="block text-xs font-black uppercase text-slate-400 mb-2">Start</label><input type="datetime-local" name="start" required class="w-full p-4 bg-white border border-slate-200 rounded-2xl"></div>
+                                    <div><label class="block text-xs font-black uppercase text-slate-400 mb-2">End</label><input type="datetime-local" name="end" required class="w-full p-4 bg-white border border-slate-200 rounded-2xl"></div>
+                                </div>
+                            `;
+                            break;
+                        case 'projects':
+                            formHtml += `
+                                <div><label class="block text-xs font-black uppercase text-slate-400 mb-2">Project Name</label><input name="name" required class="w-full p-4 bg-white border border-slate-200 rounded-2xl outline-none focus:ring-2 focus:ring-indigo-500"></div>
+                                <div><label class="block text-xs font-black uppercase text-slate-400 mb-2">Deadline</label><input type="date" name="deadline" class="w-full p-4 bg-white border border-slate-200 rounded-2xl"></div>
+                            `;
+                            break;
+                        case 'habits':
+                            formHtml += `
+                                <div><label class="block text-xs font-black uppercase text-slate-400 mb-2">Habit Action</label><input name="name" required placeholder="e.g. Meditate for 10 mins" class="w-full p-4 bg-white border border-slate-200 rounded-2xl outline-none focus:ring-2 focus:ring-indigo-500"></div>
+                            `;
+                            break;
+                    }
+                    
+                    formHtml += `<button type="submit" class="w-full py-4 bg-indigo-600 text-white font-bold rounded-2xl shadow-xl shadow-indigo-100 hover:scale-[1.02] active:scale-95 transition-all mt-4">Save Entry</button></form>`;
+                    document.getElementById('modal-body').innerHTML = formHtml;
+                }
+            }
         };
 
-        const featureMeta = {
-            tasks: { label: 'Tasks', icon: 'check-circle' },
-            projects: { label: 'Projects', icon: 'folder-kanban' },
-            school: { label: 'School', icon: 'graduation-cap' },
-            habits: { label: 'Habits', icon: 'flame' },
-            events: { label: 'Schedule', icon: 'calendar' },
-            extra: { label: 'Activities', icon: 'star' }
+        /**
+         * 4. ROUTER & VIEWS 
+         */
+        const router = {
+            navigate: (view) => {
+                state.currentView = view;
+                router.load(view);
+                ui.refreshNavigation();
+                const btn = document.getElementById(`nav-${view}`);
+                if (btn) btn.classList.add('nav-active');
+            },
+
+            load: async (view) => {
+                const viewport = document.getElementById('viewport');
+                const title = document.getElementById('view-title');
+                const subtitle = document.getElementById('view-subtitle');
+                
+                title.innerText = FEATURE_META[view]?.label || 'Settings';
+                subtitle.innerText = `Manage your ${view} and organized life.`;
+                viewport.innerHTML = `<div class="flex items-center justify-center py-20"><div class="animate-spin h-8 w-8 border-4 border-indigo-600 border-t-transparent rounded-full"></div></div>`;
+
+                switch(view) {
+                    case 'dashboard': await renderers.dashboard(viewport); break;
+                    case 'tasks': await renderers.tasks(viewport); break;
+                    case 'projects': await renderers.projects(viewport); break;
+                    case 'school': await renderers.school(viewport); break;
+                    case 'habits': await renderers.habits(viewport); break;
+                    case 'events': await renderers.events(viewport); break;
+                    case 'extra': await renderers.extra(viewport); break;
+                    case 'settings': renderers.settings(viewport); break;
+                }
+                
+                lucide.createIcons();
+            }
         };
 
-        // --- Rendering Engine ---
-        async function setView(view) {
-            currentView = view;
-            localStorage.setItem('last_view', view);
-            updateSidebar();
-            
-            const vp = document.getElementById('viewport');
-            const title = document.getElementById('page-title');
-            title.innerText = view === 'dashboard' ? 'Command Center' : view.charAt(0).toUpperCase() + view.slice(1);
-            
-            vp.innerHTML = '<div class="flex items-center justify-center h-full"><div class="animate-spin rounded-full h-8 w-8 border-b-2 border-black"></div></div>';
-            
-            switch(view) {
-                case 'dashboard': await renderDashboard(vp); break;
-                case 'tasks': await renderTasks(vp); break;
-                case 'projects': await renderProjects(vp); break;
-                case 'school': await renderSchool(vp); break;
-                case 'habits': await renderHabits(vp); break;
-                case 'events': await renderEvents(vp); break;
-                case 'extra': await renderExtra(vp); break;
-                case 'settings': renderSettings(vp); break;
-            }
-            lucide.createIcons();
-        }
+        /**
+         * 5. VIEW RENDERERS (THE HARD STUFF)
+         */
+        const renderers = {
+            dashboard: async (target) => {
+                target.innerHTML = `
+                    <div id="widget-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                        ${state.dashboardLayout.map(wId => `
+                            <div data-id="${wId}" class="widget-card bg-white border border-slate-200 rounded-3xl shadow-sm flex flex-col group min-h-[350px]">
+                                <div class="widget-header px-8 py-5 border-b flex justify-between items-center cursor-move">
+                                    <h3 class="text-xs font-black uppercase text-slate-400 tracking-widest">${wId}</h3>
+                                    <i data-lucide="more-horizontal" class="w-4 h-4 text-slate-300"></i>
+                                </div>
+                                <div id="widget-content-${wId}" class="p-8 flex-1 overflow-y-auto hide-scrollbar">
+                                    <div class="animate-pulse space-y-3">
+                                        <div class="h-4 bg-slate-100 rounded w-3/4"></div>
+                                        <div class="h-4 bg-slate-100 rounded"></div>
+                                    </div>
+                                </div>
+                            </div>
+                        `).join('')}
+                    </div>
+                `;
 
-        function updateSidebar() {
-            const nav = document.getElementById('sidebar-nav');
-            let html = `
-                <button onclick="setView('dashboard')" id="nav-dashboard" class="w-full flex items-center gap-3 px-3 py-2 text-sm font-medium rounded-lg transition-all ${currentView==='dashboard'?'sidebar-active':''}">
-                    <i data-lucide="layout-grid" class="w-4 h-4"></i> Command Center
-                </button>
-                <div class="pt-4 pb-2 px-3 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Modules</div>
-            `;
-            
-            Object.keys(config.enabledFeatures).forEach(key => {
-                if(config.enabledFeatures[key]) {
-                    const meta = featureMeta[key];
-                    html += `
-                        <button onclick="setView('${key}')" id="nav-${key}" class="w-full flex items-center gap-3 px-3 py-2 text-sm font-medium rounded-lg text-slate-500 hover:bg-slate-50 transition-all ${currentView===key?'sidebar-active':''}">
-                            <i data-lucide="${meta.icon}" class="w-4 h-4"></i> ${meta.label}
-                        </button>
-                    `;
-                }
-            });
-            nav.innerHTML = html;
-            lucide.createIcons();
-        }
+                // Initialize Sortable
+                new Sortable(document.getElementById('widget-grid'), {
+                    animation: 150,
+                    handle: '.widget-header',
+                    ghostClass: 'widget-ghost',
+                    onEnd: (evt) => {
+                        const newOrder = Array.from(evt.to.children).map(el => el.dataset.id);
+                        localStorage.setItem('dashboard_layout', JSON.stringify(newOrder));
+                        state.dashboardLayout = newOrder;
+                    }
+                });
 
-        // --- Dashboard ---
-        async function renderDashboard(vp) {
-            vp.innerHTML = `<div id="dashboard-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"></div>`;
-            const grid = document.getElementById('dashboard-grid');
-            
-            const widgets = {
-                tasks: async () => {
-                    const data = await db.tasks.where('status').notEqual('done').limit(5).toArray();
-                    return renderWidget('Active Tasks', data.map(t => `<div class="flex items-center gap-3 mb-2"><input type="checkbox" onchange="toggleTask(${t.id})" class="accent-black"><span class="text-xs font-medium">${t.title}</span></div>`).join('') || '<p class="text-xs text-slate-400">No tasks</p>');
-                },
-                events: async () => {
-                    const data = await db.events.limit(3).toArray();
-                    return renderWidget('Schedule', data.map(e => `<div class="p-2 bg-slate-100 rounded-lg mb-2"><p class="text-[10px] font-bold">${e.title}</p></div>`).join('') || '<p class="text-xs text-slate-400">Empty</p>');
-                },
-                projects: async () => {
-                   const data = await db.projects.limit(2).toArray();
-                   return renderWidget('Projects', data.map(p => `<div class="mb-2"><p class="text-[10px] font-bold mb-1">${p.name}</p><div class="h-1 w-full bg-slate-100 rounded-full overflow-hidden"><div class="bg-black h-full" style="width:${p.progress}%"></div></div></div>`).join('') || '<p class="text-xs text-slate-400">None</p>');
-                },
-                habits: async () => {
-                    const data = await db.habits.limit(3).toArray();
-                    return renderWidget('Habits', data.map(h => `<div class="flex justify-between text-xs mb-2"><span>${h.name}</span><span class="font-bold text-orange-500">${h.streak}d</span></div>`).join(''));
-                }
-            };
+                // Populate Widgets
+                const loaders = {
+                    tasks: async () => {
+                        const tasks = await db.tasks.where('status').notEqual('done').limit(5).toArray();
+                        document.getElementById('widget-content-tasks').innerHTML = tasks.length ? `
+                            <div class="space-y-4">
+                                ${tasks.map(t => `<div class="flex items-center gap-3"><input type="checkbox" onchange="logic.toggleTask(${t.id})" class="rounded-full"> <span class="text-sm font-medium text-slate-600">${t.title}</span></div>`).join('')}
+                            </div>
+                        ` : `<p class="text-slate-300 text-sm italic">No pending tasks.</p>`;
+                    },
+                    habits: async () => {
+                        const habits = await db.habits.toArray();
+                        document.getElementById('widget-content-habits').innerHTML = habits.length ? `
+                            <div class="space-y-6">
+                                ${habits.map(h => `
+                                    <div>
+                                        <div class="flex justify-between text-[11px] font-bold text-slate-500 uppercase mb-2"><span>${h.name}</span><span class="text-indigo-600">${h.streak}d</span></div>
+                                        <div class="w-full bg-slate-100 h-1.5 rounded-full overflow-hidden"><div class="bg-indigo-600 h-full" style="width: ${Math.min(h.streak * 10, 100)}%"></div></div>
+                                    </div>
+                                `).join('')}
+                            </div>
+                        ` : `<p class="text-slate-300 text-sm italic">No habits tracking.</p>`;
+                    },
+                    schedule: async () => {
+                        const today = new Date().toISOString().split('T')[0];
+                        const dayEvents = await db.events.where('start').startsWith(today).toArray();
+                        document.getElementById('widget-content-schedule').innerHTML = dayEvents.length ? `
+                            <div class="space-y-4">
+                                ${dayEvents.map(e => `
+                                    <div class="flex gap-4 items-start">
+                                        <div class="w-1 text-[10px] font-bold text-slate-300 leading-tight pt-1 capitalize">${e.start.split('T')[1].slice(0,5)}</div>
+                                        <div class="flex-1 bg-white border border-slate-100 p-3 rounded-xl"><p class="text-xs font-bold text-slate-700">${e.title}</p></div>
+                                    </div>
+                                `).join('')}
+                            </div>
+                        ` : `<p class="text-slate-300 text-sm italic">No events today.</p>`;
+                    },
+                    projects: async () => {
+                        const projs = await db.projects.toArray();
+                        document.getElementById('widget-content-projects').innerHTML = projs.length ? `
+                             <div class="space-y-4">
+                                ${projs.map(p => `<div class="p-4 bg-slate-50 border border-slate-100 rounded-2xl flex justify-between items-center"><span class="text-xs font-bold truncate pr-4">${p.name}</span> <span class="text-[10px] font-black bg-indigo-100 text-indigo-700 px-2 py-1 rounded">${p.progress}%</span></div>`).join('')}
+                             </div>
+                        ` : '<p class="text-slate-300 text-sm italic">No active projects.</p>';
+                    }
+                };
 
-            for(let key of Object.keys(config.enabledFeatures)) {
-                if(config.enabledFeatures[key] && widgets[key]) {
-                    grid.innerHTML += await widgets[key]();
-                }
-            }
-        }
+                Object.keys(loaders).forEach(k => loaders[k] ? loaders[k]() : null);
+            },
 
-        function renderWidget(title, content) {
-            return `<div class="card p-6 min-h-[200px] flex flex-col"><h4 class="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-4">${title}</h4><div class="flex-1">${content}</div></div>`;
-        }
-
-        // --- Calendar Component ---
-        async function renderEvents(vp) {
-            const month = calendarDate.getMonth();
-            const year = calendarDate.getFullYear();
-            const monthName = calendarDate.toLocaleString('default', { month: 'long' });
-            
-            const firstDay = new Date(year, month, 1).getDay();
-            const daysInMonth = new Date(year, month + 1, 0).getDate();
-            const events = await db.events.toArray();
-
-            vp.innerHTML = `
-                <div class="calendar-container card bg-white overflow-hidden flex flex-col h-full">
-                    <div class="p-4 border-b flex items-center justify-between">
-                        <h3 class="font-bold text-xl">${monthName} ${year}</h3>
-                        <div class="flex gap-2">
-                            <button onclick="navCal(-1)" class="p-2 hover:bg-slate-100 rounded-lg"><i data-lucide="chevron-left" class="w-5 h-5"></i></button>
-                            <button onclick="calendarDate=new Date(); setView('events')" class="px-4 py-2 text-xs font-bold uppercase uppercase text-slate-500">Today</button>
-                            <button onclick="navCal(1)" class="p-2 hover:bg-slate-100 rounded-lg"><i data-lucide="chevron-right" class="w-5 h-5"></i></button>
+            events: async (target) => {
+                const year = state.currentCalendarDate.getFullYear();
+                const month = state.currentCalendarDate.getMonth();
+                const monthName = state.currentCalendarDate.toLocaleString('default', { month: 'long' });
+                
+                const firstDay = new Date(year, month, 1).getDay();
+                const daysInMonth = new Date(year, month + 1, 0).getDate();
+                const events = await db.events.toArray();
+                
+                let calendarHtml = `
+                    <div class="bg-white rounded-[2rem] shadow-sm border border-slate-200 overflow-hidden flex flex-col h-full">
+                        <div class="p-8 border-b flex justify-between items-center">
+                            <div class="flex items-center gap-4">
+                                <button onclick="renderers.changeMonth(-1)" class="p-2 hover:bg-slate-100 rounded-lg"><i data-lucide="chevron-left" class="w-5 h-5"></i></button>
+                                <h3 class="text-2xl font-bold">${monthName} ${year}</h3>
+                                <button onclick="renderers.changeMonth(1)" class="p-2 hover:bg-slate-100 rounded-lg"><i data-lucide="chevron-right" class="w-5 h-5"></i></button>
+                            </div>
+                            <button onclick="state.currentCalendarDate = new Date(); router.load('events')" class="text-xs font-bold text-indigo-600 hover:underline px-4">Jump to Today</button>
                         </div>
-                    </div>
-                    <div class="calendar-grid flex-1 overflow-y-auto">
-                        <div class="calendar-day-header">Sun</div><div class="calendar-day-header">Mon</div><div class="calendar-day-header">Tue</div>
-                        <div class="calendar-day-header">Wed</div><div class="calendar-day-header">Thu</div><div class="calendar-day-header">Fri</div><div class="calendar-day-header">Sat</div>
-                        ${renderCalendarDays(year, month, firstDay, daysInMonth, events)}
-                    </div>
-                </div>
-            `;
-        }
-
-        function navCal(move) {
-            calendarDate.setMonth(calendarDate.getMonth() + move);
-            setView('events');
-        }
-
-        function renderCalendarDays(year, month, firstDay, daysInMonth, events) {
-            let html = '';
-            // Previous month overflow
-            for(let i = 0; i < firstDay; i++) html += `<div class="calendar-day other-month"></div>`;
-            
-            const today = new Date().toISOString().split('T')[0];
-            
-            for(let d = 1; d <= daysInMonth; d++) {
-                const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
-                const isToday = dateStr === today;
-                const dayEvents = events.filter(e => e.start.startsWith(dateStr));
-
-                html += `
-                    <div class="calendar-day ${isToday?'today':''}">
-                        <div class="day-num text-xs font-bold mb-2">${d}</div>
-                        <div class="space-y-1">
-                            ${dayEvents.map(e => `<div class="bg-indigo-600 text-[9px] text-white p-1 rounded truncate pointer-events-none">${e.title}</div>`).join('')}
+                        <div class="calendar-grid bg-slate-200 flex-1">
+                            ${['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].map(h => `<div class="bg-slate-50 p-4 text-center text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] border-r border-b border-slate-200">${h}</div>`).join('')}
+                            ${renderers.calculateCalendarDays(year, month, firstDay, daysInMonth, events)}
                         </div>
                     </div>
                 `;
-            }
-            return html;
-        }
+                target.innerHTML = calendarHtml;
+            },
 
-        // --- Module Implementations ---
-        async function renderTasks(vp) {
-            const data = await db.tasks.toArray();
-            vp.innerHTML = `<div class="max-w-3xl mx-auto space-y-4">
-                ${data.map(t => `<div class="card p-4 flex items-center justify-between">
-                    <div class="flex items-center gap-4"><input type="checkbox" onchange="toggleTask(${t.id})" ${t.status==='done'?'checked':''} class="w-5 h-5 accent-black">
-                    <span class="${t.status==='done'?'line-through text-slate-400':'font-bold'}">${t.title}</span></div>
-                    <button onclick="deleteItem('tasks', ${t.id})" class="text-red-400 hover:text-red-600"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
-                </div>`).join('') || '<p class="text-center text-slate-400 py-10">No tasks found.</p>'}
-            </div>`;
-        }
+            calculateCalendarDays: (year, month, firstDay, daysInMonth, events) => {
+                let html = '';
+                const today = new Date().toISOString().split('T')[0];
 
-        async function renderProjects(vp) {
-            const data = await db.projects.toArray();
-            vp.innerHTML = `<div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                ${data.map(p => `<div class="card p-6">
-                    <h3 class="font-bold text-lg mb-2">${p.name}</h3>
-                    <div class="flex items-center gap-3 mb-6"><div class="flex-1 h-2 bg-slate-100 rounded-full overflow-hidden"><div class="bg-green-500 h-full" style="width:${p.progress}%"></div></div><span class="text-xs font-black">${p.progress}%</span></div>
-                    <div class="flex gap-2">
-                        <button onclick="updateProj(${p.id}, 10)" class="flex-1 py-2 bg-slate-50 border rounded-lg text-xs font-bold">+10%</button>
-                        <button onclick="deleteItem('projects', ${p.id})" class="p-2 border rounded-lg"><i data-lucide="trash-2" class="w-4 h-4 text-red-400"></i></button>
-                    </div>
-                </div>`).join('')}
-            </div>`;
-        }
+                // Pre-padding logic
+                const prevMonthDays = new Date(year, month, 0).getDate();
+                for (let i = firstDay; i > 0; i--) {
+                    html += `<div class="calendar-cell other-month flex flex-col"><span class="text-xs font-bold opacity-30">${prevMonthDays - i + 1}</span></div>`;
+                }
 
-        async function renderSettings(vp) {
-            vp.innerHTML = `
-                <div class="max-w-2xl mx-auto space-y-8">
-                    <section class="card p-8">
-                        <h3 class="font-bold text-lg mb-6">Manage Modules</h3>
-                        <div class="space-y-4">
-                            ${Object.keys(featureMeta).map(key => `
-                                <div class="flex items-center justify-between p-4 bg-slate-50 rounded-xl">
-                                    <div class="flex items-center gap-3"><i data-lucide="${featureMeta[key].icon}" class="w-5 h-5 text-slate-500"></i><span class="font-bold text-sm">${featureMeta[key].label}</span></div>
-                                    <button onclick="toggleFeature('${key}')" class="w-12 h-6 rounded-full relative transition-all ${config.enabledFeatures[key]?'bg-black':'bg-slate-300'}">
-                                        <div class="w-4 h-4 bg-white rounded-full absolute top-1 transition-all ${config.enabledFeatures[key]?'right-1':'left-1'}"></div>
-                                    </button>
-                                </div>
-                            `).join('')}
-                        </div>
-                    </section>
+                // Month days
+                for (let day = 1; day <= daysInMonth; day++) {
+                    const dateId = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+                    const dayEvents = events.filter(e => e.start.startsWith(dateId));
+                    const isToday = dateId === today;
 
-                    <section class="card p-8">
-                        <h3 class="font-bold text-lg mb-6">Database Controls</h3>
-                        <div class="flex gap-4">
-                            <button onclick="exportJSON()" class="flex-1 py-3 bg-slate-100 rounded-xl text-xs font-bold uppercase transition-all hover:bg-slate-200">Export Backup</button>
-                            <button onclick="factoryReset()" class="flex-1 py-3 bg-red-50 text-red-600 rounded-xl text-xs font-bold uppercase transition-all hover:bg-red-100">Clear All Data</button>
-                        </div>
-                    </section>
-                </div>
-            `;
-            lucide.createIcons();
-        }
-
-        // --- Handlers ---
-        function toggleFeature(key) {
-            config.enabledFeatures[key] = !config.enabledFeatures[key];
-            localStorage.setItem('planner_config', JSON.stringify(config));
-            setView('settings');
-        }
-
-        async function toggleTask(id) {
-            const t = await db.tasks.get(id);
-            await db.tasks.update(id, { status: t.status === 'done' ? 'pending' : 'done' });
-            setView(currentView);
-        }
-
-        async function updateProj(id, amt) {
-            const p = await db.projects.get(id);
-            await db.projects.update(id, { progress: Math.min(p.progress + amt, 100) });
-            setView(currentView);
-        }
-
-        async function deleteItem(table, id) {
-            if(confirm('Delete permanently?')) {
-                await db[table].delete(id);
-                setView(currentView);
-            }
-        }
-
-        async function factoryReset() {
-            if(confirm('This will wipe all local data. Continue?')) {
-                await db.delete();
-                localStorage.clear();
-                window.location.reload();
-            }
-        }
-
-        function openQuickAdd() {
-            const enabled = Object.keys(config.enabledFeatures).filter(k => config.enabledFeatures[k]);
-            openModal('Quick Add', `
-                <div class="grid grid-cols-2 gap-3">
-                    ${enabled.map(k => `
-                        <button onclick="renderAddForm('${k}')" class="p-6 border rounded-2xl hover:bg-slate-50 text-left transition-all">
-                            <p class="text-[10px] font-black uppercase text-slate-400 mb-1">${k}</p>
-                            <p class="font-bold text-sm">${featureMeta[k].label}</p>
-                        </button>
-                    `).join('')}
-                </div>
-            `);
-        }
-
-        function renderAddForm(key) {
-            let html = `<form onsubmit="saveEntry(event, '${key}')" class="space-y-4">`;
-            switch(key) {
-                case 'tasks': 
-                    html += `<input name="title" required placeholder="Task name..." class="w-full p-4 bg-slate-50 border-none rounded-2xl">`;
-                    break;
-                case 'projects':
-                    html += `<input name="name" required placeholder="Project title..." class="w-full p-4 bg-slate-50 border-none rounded-2xl">`;
-                    break;
-                case 'events':
                     html += `
-                        <input name="title" required placeholder="Event name..." class="w-full p-4 bg-slate-50 border-none rounded-2xl mb-2">
-                        <label class="text-[10px] font-bold text-slate-400 ml-2">START TIME</label>
-                        <input name="start" type="datetime-local" class="w-full p-4 bg-slate-50 border-none rounded-2xl">
+                        <div class="calendar-cell ${isToday ? 'today' : ''} flex flex-col group overflow-hidden">
+                            <div class="flex justify-between items-center mb-2">
+                                <span class="day-label text-xs font-bold text-slate-700">${day}</span>
+                                <button onclick="ui.modal.openQuickAdd()" class="opacity-0 group-hover:opacity-100 transition-opacity text-slate-300 hover:text-indigo-600"><i data-lucide="plus" class="w-3 h-3"></i></button>
+                            </div>
+                            <div class="flex-1 space-y-1 overflow-y-auto hide-scrollbar">
+                                ${dayEvents.map(e => `<div class="event-chip bg-indigo-600 text-white font-medium">${e.title}</div>`).join('')}
+                            </div>
+                        </div>
                     `;
-                    break;
-                default:
-                    html += `<input name="name" required placeholder="Name..." class="w-full p-4 bg-slate-50 border-none rounded-2xl">`;
+                }
+                return html;
+            },
+
+            changeMonth: (offset) => {
+                state.currentCalendarDate.setMonth(state.currentCalendarDate.getMonth() + offset);
+                router.load('events');
+            },
+
+            tasks: async (target) => {
+                const tasks = await db.tasks.toArray();
+                const grouped = {
+                    pending: tasks.filter(t => t.status !== 'done'),
+                    completed: tasks.filter(t => t.status === 'done')
+                };
+
+                target.innerHTML = `
+                    <div class="max-w-4xl mx-auto space-y-10">
+                        <section>
+                            <h3 class="text-xs font-black uppercase text-slate-400 tracking-widest mb-6">Active Tasks</h3>
+                            <div class="space-y-3">
+                                ${grouped.pending.map(t => `
+                                    <div class="bg-white p-6 rounded-3xl border border-slate-200 flex items-center justify-between group">
+                                        <div class="flex items-center gap-6">
+                                            <input type="checkbox" onchange="logic.toggleTask(${t.id})" class="w-6 h-6">
+                                            <div>
+                                                <p class="font-bold text-slate-800">${t.title}</p>
+                                                <p class="text-[10px] font-bold text-slate-400 mt-1 uppercase tracking-tighter">Due: ${t.dueDate} • Priority: ${t.priority}</p>
+                                            </div>
+                                        </div>
+                                        <button onclick="logic.deleteData('tasks', ${t.id})" class="text-slate-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all"><i data-lucide="trash-2" class="w-5 h-5"></i></button>
+                                    </div>
+                                `).join('') || `<p class="text-slate-400 italic py-10 text-center">No pending tasks. Start something!</p>`}
+                            </div>
+                        </section>
+
+                        <section class="opacity-50">
+                            <h3 class="text-xs font-black uppercase text-slate-400 tracking-widest mb-6">Completed</h3>
+                            <div class="space-y-2">
+                                ${grouped.completed.map(t => `<div class="bg-slate-50 p-4 rounded-2xl border border-slate-100 flex items-center gap-4"><i data-lucide="check" class="w-4 h-4 text-green-500"></i> <span class="text-sm font-medium line-through">${t.title}</span></div>`).join('')}
+                            </div>
+                        </section>
+                    </div>
+                `;
+            },
+
+            settings: (target) => {
+                target.innerHTML = `
+                    <div class="max-w-3xl mx-auto space-y-12">
+                        <section>
+                            <h3 class="text-sm font-black uppercase tracking-widest text-slate-400 mb-6 flex items-center gap-2"><i data-lucide="tool" class="w-4 h-4"></i> Feature Management</h3>
+                            <div class="bg-white rounded-[2rem] shadow-sm border border-slate-200 divide-y overflow-hidden">
+                                ${Object.keys(state.config.features).map(key => `
+                                    <div class="p-6 flex items-center justify-between hover:bg-slate-50 transition-colors">
+                                        <div class="flex items-center gap-4">
+                                            <div class="w-10 h-10 bg-slate-100 rounded-xl flex items-center justify-center text-slate-500"><i data-lucide="${FEATURE_META[key].icon}" class="w-5 h-5"></i></div>
+                                            <div><p class="font-bold text-slate-700 capitalize">${key}</p><p class="text-xs text-slate-400">Enable or disable the ${key} module globally.</p></div>
+                                        </div>
+                                        <button onclick="logic.toggleFeature('${key}')" class="w-14 h-8 rounded-full relative transition-all ${state.config.features[key] ? 'bg-indigo-600' : 'bg-slate-300'}">
+                                            <div class="w-6 h-6 bg-white rounded-full absolute top-1 transition-all ${state.config.features[key] ? 'right-1' : 'left-1'}"></div>
+                                        </button>
+                                    </div>
+                                `).join('')}
+                            </div>
+                        </section>
+
+                        <section>
+                            <h3 class="text-sm font-black uppercase tracking-widest text-slate-400 mb-6 flex items-center gap-2"><i data-lucide="cpu" class="w-4 h-4"></i> Automation Rules</h3>
+                             <div class="bg-white rounded-[2rem] shadow-sm border border-slate-200 p-8 space-y-6">
+                                <div class="flex items-center justify-between">
+                                    <p class="font-bold text-sm text-slate-600">Auto-Carryover Overdue Tasks</p>
+                                    <input type="checkbox" onchange="logic.updateConfig('autoCarryover', this.checked)" ${state.config.automation.autoCarryover ? 'checked' : ''}>
+                                </div>
+                             </div>
+                        </section>
+
+                        <section>
+                             <h3 class="text-sm font-black uppercase tracking-widest text-slate-400 mb-6 flex items-center gap-2"><i data-lucide="database" class="w-4 h-4"></i> Portability & Data</h3>
+                             <div class="grid grid-cols-2 gap-4">
+                                <button onclick="logic.exportData()" class="p-6 bg-white border border-slate-200 rounded-3xl font-bold flex flex-col items-center gap-4 hover:border-indigo-500 transition-all">
+                                    <i data-lucide="download" class="w-8 h-8 text-indigo-600"></i> Export JSON Backup
+                                </button>
+                                <button onclick="logic.factoryReset()" class="p-6 bg-red-50 border border-red-100 rounded-3xl font-bold text-red-600 flex flex-col items-center gap-4 hover:bg-red-100 transition-all">
+                                    <i data-lucide="trash-2" class="w-8 h-8"></i> Wipe Local Database
+                                </button>
+                             </div>
+                        </section>
+                    </div>
+                `;
+            },
+
+            projects: async (target) => {
+                const projs = await db.projects.toArray();
+                target.innerHTML = `<div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                    ${projs.map(p => `
+                        <div class="bg-white p-8 rounded-3xl shadow-sm border border-slate-200 flex flex-col">
+                            <h4 class="text-xl font-bold mb-6">${p.name}</h4>
+                            <div class="mt-auto">
+                                <div class="flex justify-between text-[10px] font-black text-slate-400 uppercase mb-2"><span>Completion</span><span>${p.progress}%</span></div>
+                                <div class="w-full h-2 bg-slate-100 rounded-full overflow-hidden"><div class="bg-indigo-600 h-full transition-all" style="width: ${p.progress}%"></div></div>
+                                <div class="flex gap-2 mt-8">
+                                    <button onclick="logic.updateProjectProgress(${p.id}, 10)" class="flex-1 py-3 text-xs font-bold bg-slate-50 border border-slate-100 rounded-xl hover:bg-slate-100">+10%</button>
+                                    <button onclick="logic.deleteData('projects', ${p.id})" class="p-3 text-red-500 hover:bg-red-50 rounded-xl transition-all"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
+                                </div>
+                            </div>
+                        </div>
+                    `).join('')}
+                </div>`;
+            },
+
+            habits: async (target) => {
+                const list = await db.habits.toArray();
+                target.innerHTML = `<div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    ${list.map(h => `
+                        <div class="bg-white p-8 rounded-[2rem] shadow-sm border border-slate-200 flex flex-col items-center text-center">
+                            <h4 class="font-bold text-slate-700 mb-4">${h.name}</h4>
+                            <div class="text-5xl font-black text-indigo-600 mb-1">${h.streak}</div>
+                            <p class="text-[10px] font-black uppercase text-slate-400 tracking-widest mb-8">Current Streak</p>
+                            <button onclick="logic.incrementHabit(${h.id})" class="w-full py-4 bg-indigo-600 text-white font-black rounded-2xl shadow-xl shadow-indigo-100 hover:scale-105 active:scale-95 transition-all">+ Add Logging</button>
+                        </div>
+                    `).join('')}
+                </div>`;
+            },
+
+            school: async (target) => {
+                const classes = await db.school.toArray();
+                const tasks = await db.tasks.where('classId').notEqual(null).toArray();
+                target.innerHTML = `
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-10">
+                        <section class="space-y-6">
+                            <h3 class="text-xs font-black uppercase text-slate-400 tracking-widest">Active Classes</h3>
+                            ${classes.map(c => `<div class="bg-indigo-900 text-white p-6 rounded-3xl shadow-xl overflow-hidden relative">
+                                <i data-lucide="graduation-cap" class="absolute -right-4 -bottom-4 w-24 h-24 opacity-10"></i>
+                                <h4 class="text-lg font-bold mb-1">${c.className}</h4>
+                                <p class="text-xs opacity-60 font-medium">${c.instructor}</p>
+                            </div>`).join('')}
+                        </section>
+                        <section class="space-y-4">
+                            <h3 class="text-xs font-black uppercase text-slate-400 tracking-widest">School Assignments</h3>
+                            <div class="space-y-2">
+                                ${tasks.filter(t => t.classId).map(t => `<div class="p-4 bg-white border border-slate-200 rounded-2xl text-sm font-bold">${t.title}</div>`).join('')}
+                            </div>
+                        </section>
+                    </div>
+                `;
+            },
+
+            extra: async (target) => {
+                const extras = await db.extra.toArray();
+                target.innerHTML = `<div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    ${extras.map(e => `<div class="bg-white p-6 rounded-3xl shadow-sm border border-slate-200 flex justify-between items-center"><span class="font-bold text-slate-700">${e.name}</span> <button onclick="logic.deleteData('extra', ${e.id})" class="text-red-400"><i data-lucide="trash-2" class="w-5 h-5"></i></button></div>`).join('')}
+                </div>`;
             }
-            html += `<button type="submit" class="w-full py-4 bg-black text-white font-bold rounded-2xl mt-4">Save Entry</button></form>`;
-            document.getElementById('modal-body').innerHTML = html;
-        }
-
-        async function saveEntry(e, key) {
-            e.preventDefault();
-            const fd = new FormData(e.target);
-            const data = Object.fromEntries(fd.entries());
-            if(key === 'tasks') data.status = 'pending';
-            if(key === 'projects') data.progress = 0;
-            if(key === 'habits') data.streak = 0;
-            
-            await db[key].add(data);
-            closeModal();
-            setView(currentView);
-        }
-
-        function openModal(title, content) {
-            document.getElementById('modal-title').innerText = title;
-            document.getElementById('modal-body').innerHTML = content;
-            document.getElementById('modal-overlay').classList.remove('hidden');
-            lucide.createIcons();
-        }
-
-        function closeModal() { document.getElementById('modal-overlay').classList.add('hidden'); }
-
-        async function exportJSON() {
-            const data = {};
-            for(let store of db.tables) data[store.name] = await store.toArray();
-            const blob = new Blob([JSON.stringify(data)], { type: 'application/json' });
-            const a = document.createElement('a');
-            a.href = URL.createObjectURL(blob);
-            a.download = `backup_${new Date().toISOString().split('T')[0]}.json`;
-            a.click();
-        }
-
-        // --- System Init ---
-        setInterval(() => {
-            const now = new Date();
-            document.getElementById('clock').innerText = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }) + ' • ' + now.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-        }, 1000);
-
-        window.onload = () => {
-            const last = localStorage.getItem('last_view') || 'dashboard';
-            setView(last);
         };
+
+        /**
+         * 6. AUTOMATION SYSTEM 
+         */
+        const automation = {
+            runner: async () => {
+                if (!state.config.automation.autoCarryover) return;
+                
+                const today = new Date().toISOString().split('T')[0];
+                const overdue = await db.tasks.where('dueDate').below(today).and(t => t.status !== 'done').toArray();
+                
+                if (overdue.length > 0) {
+                    console.log(`Automation: Moving ${overdue.length} overdue tasks to today.`);
+                    for (let task of overdue) {
+                        await db.tasks.update(task.id, { dueDate: today });
+                    }
+                }
+            }
+        };
+
+        /**
+         * 7. CORE BUSINESS LOGIC 
+         */
+        const logic = {
+            handleForm: async (e, key) => {
+                e.preventDefault();
+                const fd = new FormData(e.target);
+                const data = Object.fromEntries(fd.entries());
+                
+                // Defaults
+                if(key === 'tasks') { data.status = 'pending'; data.createdAt = Date.now(); }
+                if(key === 'projects') { data.progress = 0; data.status = 'active'; }
+                if(key === 'habits') { data.streak = 0; data.logs = []; }
+                
+                await db[key].add(data);
+                ui.modal.close();
+                router.load(state.currentView);
+            },
+
+            toggleTask: async (id) => {
+                const task = await db.tasks.get(id);
+                await db.tasks.update(id, { status: task.status === 'done' ? 'pending' : 'done' });
+                router.load(state.currentView);
+            },
+
+            incrementHabit: async (id) => {
+                const habit = await db.habits.get(id);
+                await db.habits.update(id, { streak: (habit.streak || 0) + 1 });
+                router.load('habits');
+            },
+
+            updateProjectProgress: async (id, inc) => {
+                const p = await db.projects.get(id);
+                const newProg = Math.min((p.progress || 0) + inc, 100);
+                await db.projects.update(id, { progress: newProg });
+                router.load('projects');
+            },
+
+            deleteData: async (table, id) => {
+                if(confirm("Permanently delete this item?")) {
+                    await db[table].delete(id);
+                    router.load(state.currentView);
+                }
+            },
+
+            toggleFeature: (key) => {
+                state.config.features[key] = !state.config.features[key];
+                logic.saveConfig();
+                ui.refreshNavigation();
+                router.load('settings');
+            },
+
+            updateConfig: (key, val) => {
+                state.config.automation[key] = val;
+                logic.saveConfig();
+            },
+
+            saveConfig: () => {
+                localStorage.setItem('app_config', JSON.stringify(state.config));
+            },
+
+            exportData: async () => {
+                const results = {};
+                for (const table of db.tables) {
+                    results[table.name] = await table.toArray();
+                }
+                const blob = new Blob([JSON.stringify(results, null, 2)], { type: 'application/json' });
+                const a = document.createElement('a');
+                a.href = URL.createObjectURL(blob);
+                a.download = `planner_backup_${new Date().getTime()}.json`;
+                a.click();
+            },
+
+            factoryReset: async () => {
+                if(confirm("DANGER: This will delete ALL local data. Proceed?")) {
+                    await db.delete();
+                    localStorage.clear();
+                    window.location.reload();
+                }
+            }
+        };
+
+        // Bootstrap App
+        window.onload = ui.init;
+
     </script>
 </body>
 </html>
