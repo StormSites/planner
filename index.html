@@ -9,6 +9,8 @@
     <script src="https://unpkg.com/dexie/dist/dexie.js"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
     <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
+    <!-- ADDED: ICS Parser Library -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/ical.js/1.5.0/ical.min.js"></script>
     
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap');
@@ -483,6 +485,17 @@
                                 <i data-lucide="book-open" class="w-4 h-4"></i> New Assignment
                             </button>
                         `;
+                    } else if (view === 'events') {
+                        // ADDED: Import Button in Tab
+                        actionBtn.innerHTML = `
+                            <button onclick="ui.modal.renderForm('events')" class="btn-tab-action">
+                                <i data-lucide="plus-circle" class="w-4 h-4"></i> Add Event
+                            </button>
+                            <button onclick="document.getElementById('ics-upload').click()" class="btn-tab-action bg-indigo-50 text-indigo-600">
+                                <i data-lucide="file-up" class="w-4 h-4"></i> Import .ics
+                                <input type="file" id="ics-upload" class="hidden" accept=".ics" onchange="logic.importIcs(this)">
+                            </button>
+                        `;
                     } else {
                         actionBtn.innerHTML = `
                             <button onclick="ui.modal.renderForm('${view}')" class="btn-tab-action">
@@ -637,9 +650,33 @@
 
             settings: (target) => {
                 target.innerHTML = `
-                    <div class="max-w-3xl mx-auto space-y-12"><section><h3 class="text-sm font-black uppercase tracking-widest text-slate-400 mb-6 flex items-center gap-2"><i data-lucide="settings" class="w-4 h-4"></i> Feature Management</h3><div class="bg-white rounded-[2rem] shadow-sm border border-slate-200 divide-y overflow-hidden">
-                    ${Object.keys(state.config.features).map(key => `<div class="p-6 flex items-center justify-between hover:bg-slate-50 transition-colors"><div class="flex items-center gap-4"><div class="w-10 h-10 bg-slate-100 rounded-xl flex items-center justify-center text-slate-500"><i data-lucide="${FEATURE_META[key].icon}" class="w-5 h-5"></i></div><div><p class="font-bold text-slate-700 capitalize">${key}</p><p class="text-xs text-slate-400">Enable or disable the ${key} module.</p></div></div><button onclick="logic.toggleFeature('${key}')" class="w-14 h-8 rounded-full relative transition-all ${state.config.features[key] ? 'bg-indigo-600' : 'bg-slate-300'}"><div class="w-6 h-6 bg-white rounded-full absolute top-1 transition-all ${state.config.features[key] ? 'right-1' : 'left-1'}"></div></button></div>`).join('')}
-                    </div></section><section><h3 class="text-sm font-black uppercase tracking-widest text-slate-400 mb-6 flex items-center gap-2"><i data-lucide="cpu" class="w-4 h-4"></i> Automation Rules</h3><div class="bg-white rounded-[2rem] shadow-sm border border-slate-200 p-8 space-y-6"><div class="flex items-center justify-between"><p class="font-bold text-sm text-slate-600">Auto-Carryover Overdue Tasks</p><input type="checkbox" onchange="logic.updateConfig('autoCarryover', this.checked)" ${state.config.automation.autoCarryover ? 'checked' : ''}></div></div></section><section><h3 class="text-sm font-black uppercase tracking-widest text-slate-400 mb-6 flex items-center gap-2"><i data-lucide="database" class="w-4 h-4"></i> Portability & Data</h3><div class="grid grid-cols-2 gap-4"><button onclick="logic.exportData()" class="p-6 bg-white border border-slate-200 rounded-3xl font-bold flex flex-col items-center gap-4 hover:border-indigo-500 transition-all"><i data-lucide="download" class="w-8 h-8 text-indigo-600"></i> Export Backup</button><button onclick="logic.factoryReset()" class="p-6 bg-red-50 border border-red-100 rounded-3xl font-bold text-red-600 flex flex-col items-center gap-4 hover:bg-red-100 transition-all"><i data-lucide="trash-2" class="w-8 h-8"></i> Wipe Database</button></div></section></div>
+                    <div class="max-w-3xl mx-auto space-y-12">
+                        <!-- ADDED: ICS Import Section with Instructions -->
+                        <section>
+                            <h3 class="text-sm font-black uppercase tracking-widest text-slate-400 mb-6 flex items-center gap-2">
+                                <i data-lucide="calendar" class="w-4 h-4"></i> Calendar Import
+                            </h3>
+                            <div class="bg-indigo-50 p-8 rounded-[2rem] border border-indigo-100 italic mb-4">
+                                <h4 class="font-bold text-indigo-900 mb-2">How to Import from Google Calendar:</h4>
+                                <ol class="text-xs text-indigo-700 space-y-2 list-decimal ml-4">
+                                    <li>On your computer, open <b>Google Calendar</b>.</li>
+                                    <li>In the top right, click <b>Settings</b> (the gear icon) -> <b>Settings</b>.</li>
+                                    <li>On the left-hand menu, click <b>Import & Export</b>.</li>
+                                    <li>Under Export, click the <b>Export</b> button to download a .zip file.</li>
+                                    <li>Extract the .zip file and find the <b>.ics</b> file.</li>
+                                    <li>Click the button below to upload that file!</li>
+                                </ol>
+                            </div>
+                            <button onclick="document.getElementById('settings-ics-upload').click()" class="w-full py-6 bg-white border-2 border-dashed border-indigo-200 rounded-3xl font-bold text-indigo-600 flex flex-col items-center gap-2 hover:border-indigo-500 transition-all">
+                                <i data-lucide="upload-cloud" class="w-6 h-6"></i>
+                                Upload .ics File
+                                <input type="file" id="settings-ics-upload" class="hidden" accept=".ics" onchange="logic.importIcs(this)">
+                            </button>
+                        </section>
+
+                        <section><h3 class="text-sm font-black uppercase tracking-widest text-slate-400 mb-6 flex items-center gap-2"><i data-lucide="settings" class="w-4 h-4"></i> Feature Management</h3><div class="bg-white rounded-[2rem] shadow-sm border border-slate-200 divide-y overflow-hidden">
+                        ${Object.keys(state.config.features).map(key => `<div class="p-6 flex items-center justify-between hover:bg-slate-50 transition-colors"><div class="flex items-center gap-4"><div class="w-10 h-10 bg-slate-100 rounded-xl flex items-center justify-center text-slate-500"><i data-lucide="${FEATURE_META[key].icon}" class="w-5 h-5"></i></div><div><p class="font-bold text-slate-700 capitalize">${key}</p><p class="text-xs text-slate-400">Enable or disable the ${key} module.</p></div></div><button onclick="logic.toggleFeature('${key}')" class="w-14 h-8 rounded-full relative transition-all ${state.config.features[key] ? 'bg-indigo-600' : 'bg-slate-300'}"><div class="w-6 h-6 bg-white rounded-full absolute top-1 transition-all ${state.config.features[key] ? 'right-1' : 'left-1'}"></div></button></div>`).join('')}
+                        </div></section><section><h3 class="text-sm font-black uppercase tracking-widest text-slate-400 mb-6 flex items-center gap-2"><i data-lucide="cpu" class="w-4 h-4"></i> Automation Rules</h3><div class="bg-white rounded-[2rem] shadow-sm border border-slate-200 p-8 space-y-6"><div class="flex items-center justify-between"><p class="font-bold text-sm text-slate-600">Auto-Carryover Overdue Tasks</p><input type="checkbox" onchange="logic.updateConfig('autoCarryover', this.checked)" ${state.config.automation.autoCarryover ? 'checked' : ''}></div></div></section><section><h3 class="text-sm font-black uppercase tracking-widest text-slate-400 mb-6 flex items-center gap-2"><i data-lucide="database" class="w-4 h-4"></i> Portability & Data</h3><div class="grid grid-cols-2 gap-4"><button onclick="logic.exportData()" class="p-6 bg-white border border-slate-200 rounded-3xl font-bold flex flex-col items-center gap-4 hover:border-indigo-500 transition-all"><i data-lucide="download" class="w-8 h-8 text-indigo-600"></i> Export Backup</button><button onclick="logic.factoryReset()" class="p-6 bg-red-50 border border-red-100 rounded-3xl font-bold text-red-600 flex flex-col items-center gap-4 hover:bg-red-100 transition-all"><i data-lucide="trash-2" class="w-8 h-8"></i> Wipe Database</button></div></section></div>
                 `;
                 lucide.createIcons();
             },
@@ -752,6 +789,38 @@
                     }, 1000);
                 }
                 router.load('dashboard');
+            },
+
+            // ADDED: ICS Import Logic
+            importIcs: async (input) => {
+                const file = input.files[0];
+                if (!file) return;
+                const reader = new FileReader();
+                reader.onload = async (e) => {
+                    try {
+                        const jcalData = ICAL.parse(e.target.result);
+                        const comp = new ICAL.Component(jcalData);
+                        const vevents = comp.getAllSubcomponents('vevent');
+                        let count = 0;
+                        for (const vevent of vevents) {
+                            const event = new ICAL.Event(vevent);
+                            await db.events.add({
+                                title: event.summary,
+                                start: event.startDate.toJSDate().toISOString(),
+                                end: event.endDate.toJSDate().toISOString(),
+                                description: event.description || '',
+                                createdAt: Date.now()
+                            });
+                            count++;
+                        }
+                        alert(`Success! Imported ${count} events into your calendar.`);
+                        router.load(state.currentView);
+                    } catch (err) {
+                        console.error(err);
+                        alert("Error parsing .ics file. Please ensure it is a valid calendar export.");
+                    }
+                };
+                reader.readAsText(file);
             },
 
             handleForm: async (e, key, id = null) => { // Updated to handle Updates
