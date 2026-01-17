@@ -104,8 +104,7 @@
             border-radius: 4px;
             margin-bottom: 2px;
             white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
+            overflow: hidden; text-overflow: ellipsis;
             cursor: pointer;
         }
 
@@ -135,7 +134,7 @@
             color: #475569;
             border: 1px solid #e2e8f0;
             border-radius: 12px;
-            font-size: 11px; /* Slightly smaller for better fit */
+            font-size: 11px;
             font-weight: 700;
             transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
             box-shadow: 0 1px 2px rgba(0,0,0,0.05);
@@ -174,7 +173,7 @@
         header {
             position: sticky;
             top: 0;
-            z-index: 40 !important; /* Higher than any page content */
+            z-index: 40 !important;
         }
     </style>
 </head>
@@ -208,7 +207,6 @@
 
         <!-- Content Area -->
         <main class="flex-1 flex flex-col min-w-0 bg-slate-50 relative">
-            <!-- FIXED: Added higher z-index and flex wrapping fix -->
             <header class="h-20 bg-white/95 backdrop-blur-sm border-b px-10 flex items-center justify-between shrink-0 z-40">
                 <div class="flex items-center gap-8 flex-1 min-w-0">
                     <div class="flex flex-col shrink-0">
@@ -237,14 +235,16 @@
                 </div>
             </header>
 
-            <div id="viewport" class="flex-1 overflow-y-auto p-10 scroll-smooth">
-                <!-- Data views injected here -->
-            </div>
+            <!-- UPDATED: Footer is now inside the scrollable container so it is NOT sticky -->
+            <div class="flex-1 overflow-y-auto scroll-smooth flex flex-col">
+                <div id="viewport" class="flex-1 p-10">
+                    <!-- Data views injected here -->
+                </div>
 
-            <!-- ADDED: Footer with placeholder text -->
-            <footer class="p-6 text-center text-[10px] font-bold text-slate-400 uppercase tracking-widest border-t bg-white/50 backdrop-blur-sm">
-                Nexus Planner &copy; 2024. All your data is stored locally in your browser.
-            </footer>
+                <footer class="p-10 text-center text-[10px] font-bold text-slate-400 uppercase tracking-widest border-t bg-white/50 backdrop-blur-sm">
+                    <a href="https://example.com" class="hover:text-indigo-600 transition-colors">Nexus Planner</a> © 2026 by <a href="https://derrickrichard.github.io/profile/" class="hover:text-indigo-600 transition-colors">Derrick Richard</a> is licensed under <a href="https://creativecommons.org/licenses/by-nd/4.0/" class="hover:text-indigo-600 transition-colors">CC BY-ND 4.0</a><img src="https://mirrors.creativecommons.org/presskit/icons/cc.svg" alt="" style="max-width: 1em;max-height:1em;margin-left: .2em; display: inline-block; vertical-align: middle;"><img src="https://mirrors.creativecommons.org/presskit/icons/by.svg" alt="" style="max-width: 1em;max-height:1em;margin-left: .2em; display: inline-block; vertical-align: middle;"><img src="https://mirrors.creativecommons.org/presskit/icons/nd.svg" alt="" style="max-width: 1em;max-height:1em;margin-left: .2em; display: inline-block; vertical-align: middle;">
+                </footer>
+            </div>
         </main>
     </div>
 
@@ -262,7 +262,6 @@
                 </div>
             </div>
             <div id="modal-body" class="p-8 overflow-y-auto bg-slate-50/30">
-                <!-- Form content -->
             </div>
         </div>
     </div>
@@ -307,9 +306,9 @@
         const state = {
             currentView: 'dashboard',
             currentCalendarDate: new Date(),
-            dashboardLayout: JSON.parse(localStorage.getItem('dashboard_layout')) || ['focus', 'tasks', 'schedule', 'habits', 'projects', 'school', 'extra'], // Added 'focus'
-            searchQuery: '', // ADDED
-            pomodoro: { time: 1500, active: false, interval: null }, // ADDED
+            dashboardLayout: JSON.parse(localStorage.getItem('dashboard_layout')) || ['focus', 'tasks', 'schedule', 'habits', 'projects', 'school', 'extra'],
+            searchQuery: '',
+            pomodoro: { time: 1500, active: false, interval: null },
             config: {
                 ...defaultConfig,
                 ...localConfig,
@@ -321,7 +320,7 @@
         const FEATURE_META = {
             dashboard: { id: 'dashboard', label: 'Command Center', icon: 'home' },
             tasks: { id: 'tasks', label: 'Daily Tasks', icon: 'check-square' },
-            assignment: { id: 'assignment', label: 'Homework', icon: 'book-open' }, // Added for UI helper
+            assignment: { id: 'assignment', label: 'Homework', icon: 'book-open' },
             projects: { id: 'projects', label: 'Projects', icon: 'briefcase' },
             school: { id: 'school', label: 'Education', icon: 'graduation-cap' },
             habits: { id: 'habits', label: 'Habits', icon: 'flame' },
@@ -377,11 +376,11 @@
             },
 
             modal: {
-                open: (title, subtitle, bodyHtml, actionsHtml = '') => { // Updated signature
+                open: (title, subtitle, bodyHtml, actionsHtml = '') => {
                     document.getElementById('modal-title').innerText = title;
                     document.getElementById('modal-subtitle').innerText = subtitle;
                     document.getElementById('modal-body').innerHTML = bodyHtml;
-                    document.getElementById('modal-actions').innerHTML = actionsHtml; // ADDED
+                    document.getElementById('modal-actions').innerHTML = actionsHtml;
                     document.getElementById('modal-overlay').classList.remove('hidden');
                     lucide.createIcons();
                 },
@@ -400,7 +399,6 @@
                             </button>
                         `;
                     });
-                    // Specific Assignment Shortcut
                     html += `
                         <button onclick="ui.modal.renderForm('assignment')" class="flex flex-col items-start p-6 bg-indigo-50 border border-indigo-100 rounded-3xl hover:border-indigo-500 hover:bg-indigo-50 transition-all group">
                             <i data-lucide="book-open" class="w-6 h-6 text-indigo-400 group-hover:text-indigo-600 mb-4 transition-colors"></i>
@@ -411,7 +409,7 @@
                     html += `</div>`;
                     ui.modal.open("New Entry", "Choose what you want to add to your planner", html);
                 },
-                renderForm: async (key, editId = null) => { // ADDED editId
+                renderForm: async (key, editId = null) => {
                     const editData = editId ? await db[key==='assignment'?'tasks':key].get(editId) : null;
                     let formHtml = `<form onsubmit="logic.handleForm(event, '${key === 'assignment' ? 'tasks' : key}', ${editId})" class="space-y-6">`;
                     switch(key) {
@@ -506,7 +504,6 @@
                 title.innerText = FEATURE_META[view]?.label || 'Settings';
                 subtitle.innerText = `Manage your ${view} and organized life.`;
 
-                // UPDATED: Standardized and Evenly Spaced Header Buttons
                 if(view !== 'dashboard' && view !== 'settings') {
                     if (view === 'school') {
                         actionBtn.innerHTML = `
@@ -582,7 +579,7 @@
                     }
                 });
                 const loaders = {
-                    focus: () => { // ADDED Focus Widget
+                    focus: () => {
                         document.getElementById('widget-content-focus').innerHTML = `
                             <div class="flex flex-col items-center justify-center h-full gap-4">
                                 <div id="pomo-timer" class="text-5xl font-black text-slate-800">${Math.floor(state.pomodoro.time/60)}:${(state.pomodoro.time%60).toString().padStart(2, '0')}</div>
@@ -671,7 +668,7 @@
 
             tasks: async (target) => {
                 let tasks = await db.tasks.toArray();
-                if (state.searchQuery) tasks = tasks.filter(t => t.title.toLowerCase().includes(state.searchQuery)); // Search filtering
+                if (state.searchQuery) tasks = tasks.filter(t => t.title.toLowerCase().includes(state.searchQuery));
                 
                 const grouped = { pending: tasks.filter(t => t.status !== 'done'), completed: tasks.filter(t => t.status === 'done') };
                 target.innerHTML = `
@@ -685,7 +682,6 @@
             settings: (target) => {
                 target.innerHTML = `
                     <div class="max-w-3xl mx-auto space-y-12">
-                        <!-- ADDED: ICS Import Section with Instructions -->
                         <section>
                             <h3 class="text-sm font-black uppercase tracking-widest text-slate-400 mb-6 flex items-center gap-2">
                                 <i data-lucide="calendar" class="w-4 h-4"></i> Calendar Import
@@ -805,12 +801,12 @@
          * 7. CORE BUSINESS LOGIC 
          */
         const logic = {
-            search: (val) => { // ADDED
+            search: (val) => {
                 state.searchQuery = val.toLowerCase();
                 if (state.currentView !== 'dashboard') router.load(state.currentView);
             },
 
-            togglePomodoro: () => { // ADDED
+            togglePomodoro: () => {
                 if (state.pomodoro.active) {
                     clearInterval(state.pomodoro.interval);
                     state.pomodoro.active = false;
@@ -825,7 +821,6 @@
                 router.load('dashboard');
             },
 
-            // ADDED: UI Function for Instructions Modal
             showImportInstructions: () => {
                 const html = `
                     <div class="space-y-6 text-slate-600">
@@ -854,7 +849,6 @@
                 ui.modal.open("How to Export", "Follow these steps to sync your Google Calendar", html);
             },
 
-            // ADDED: ICS Import Logic
             importIcs: async (input) => {
                 const file = input.files[0];
                 if (!file) return;
@@ -886,7 +880,7 @@
                 reader.readAsText(file);
             },
 
-            handleForm: async (e, key, id = null) => { // Updated to handle Updates
+            handleForm: async (e, key, id = null) => {
                 e.preventDefault();
                 const fd = new FormData(e.target);
                 const data = Object.fromEntries(fd.entries());
@@ -930,7 +924,6 @@
                 `;
                 content += `</div>`;
 
-                // ADDED: Edit Button Action
                 const actionsHtml = `<button onclick="ui.modal.renderForm('${table}', ${id})" class="px-4 py-2 bg-slate-100 font-bold text-xs rounded-xl hover:bg-slate-200 transition-all">Edit Item</button>`;
                 ui.modal.open(item.title || item.name, "Detailed Overview", content, actionsHtml);
             },
