@@ -372,6 +372,7 @@
                                     </div>
                                     <div><label class="block text-xs font-black uppercase text-slate-400 mb-2">Due Date</label><input type="date" name="dueDate" class="w-full p-4 bg-white border border-slate-200 rounded-2xl" value="${new Date().toISOString().split('T')[0]}"></div>
                                 </div>
+                                <div><label class="block text-xs font-black uppercase text-slate-400 mb-2">Description</label><textarea name="description" class="w-full p-4 bg-white border border-slate-200 rounded-2xl outline-none focus:ring-2 focus:ring-indigo-500 h-24" placeholder="Add more details..."></textarea></div>
                                 <div>
                                     <label class="block text-xs font-black uppercase text-slate-400 mb-2">Link to Class (Required for Homework)</label>
                                     <select name="classId" class="w-full p-4 bg-white border border-slate-200 rounded-2xl" ${key === 'assignment' ? 'required' : ''}>
@@ -389,12 +390,14 @@
                                     <div><label class="block text-xs font-black uppercase text-slate-400 mb-2">Start</label><input type="datetime-local" name="start" required class="w-full p-4 bg-white border border-slate-200 rounded-2xl" value="${new Date().toISOString().slice(0, 16)}"></div>
                                     <div><label class="block text-xs font-black uppercase text-slate-400 mb-2">End</label><input type="datetime-local" name="end" required class="w-full p-4 bg-white border border-slate-200 rounded-2xl" value="${new Date().toISOString().slice(0, 16)}"></div>
                                 </div>
+                                <div><label class="block text-xs font-black uppercase text-slate-400 mb-2">Description</label><textarea name="description" class="w-full p-4 bg-white border border-slate-200 rounded-2xl outline-none focus:ring-2 focus:ring-indigo-500 h-24" placeholder="Location, notes, etc..."></textarea></div>
                             `;
                             break;
                         case 'projects':
                             formHtml += `
                                 <div><label class="block text-xs font-black uppercase text-slate-400 mb-2">Project Name</label><input name="name" required class="w-full p-4 bg-white border border-slate-200 rounded-2xl outline-none focus:ring-2 focus:ring-indigo-500"></div>
                                 <div><label class="block text-xs font-black uppercase text-slate-400 mb-2">Deadline</label><input type="date" name="deadline" class="w-full p-4 bg-white border border-slate-200 rounded-2xl" value="${new Date().toISOString().split('T')[0]}"></div>
+                                <div><label class="block text-xs font-black uppercase text-slate-400 mb-2">Description</label><textarea name="description" class="w-full p-4 bg-white border border-slate-200 rounded-2xl outline-none focus:ring-2 focus:ring-indigo-500 h-24" placeholder="What is this project about?"></textarea></div>
                             `;
                             break;
                         case 'habits':
@@ -512,7 +515,7 @@
                 const loaders = {
                     tasks: async () => {
                         const tasks = await db.tasks.where('status').notEqual('done').limit(5).toArray();
-                        document.getElementById('widget-content-tasks').innerHTML = tasks.length ? `<div class="space-y-4">${tasks.map(t => `<div class="flex items-center gap-3"><input type="checkbox" onchange="logic.toggleTask(${t.id})" class="rounded-full"> <span class="text-sm font-medium text-slate-600">${t.title}</span></div>`).join('')}</div>` : `<p class="text-slate-300 text-sm italic">No pending tasks.</p>`;
+                        document.getElementById('widget-content-tasks').innerHTML = tasks.length ? `<div class="space-y-4">${tasks.map(t => `<div class="flex items-center gap-3"><input type="checkbox" onchange="logic.toggleTask(${t.id})" class="rounded-full"> <span onclick="logic.showDetails('tasks', ${t.id})" class="text-sm font-medium text-slate-600 cursor-pointer hover:underline">${t.title}</span></div>`).join('')}</div>` : `<p class="text-slate-300 text-sm italic">No pending tasks.</p>`;
                     },
                     habits: async () => {
                         const habits = await db.habits.toArray();
@@ -521,11 +524,11 @@
                     schedule: async () => {
                         const today = new Date().toISOString().split('T')[0];
                         const dayEvents = await db.events.where('start').startsWith(today).toArray();
-                        document.getElementById('widget-content-schedule').innerHTML = dayEvents.length ? `<div class="space-y-4">${dayEvents.map(e => `<div class="flex gap-4 items-start"><div class="w-1 text-[10px] font-bold text-slate-300 leading-tight pt-1 capitalize">${(e.start.split('T')[1] || "00:00").slice(0,5)}</div><div class="flex-1 bg-white border border-slate-100 p-3 rounded-xl"><p class="text-xs font-bold text-slate-700">${e.title}</p></div></div>`).join('')}</div>` : `<p class="text-slate-300 text-sm italic">No events today.</p>`;
+                        document.getElementById('widget-content-schedule').innerHTML = dayEvents.length ? `<div class="space-y-4">${dayEvents.map(e => `<div class="flex gap-4 items-start cursor-pointer hover:bg-slate-50 p-1 rounded-lg" onclick="logic.showDetails('events', ${e.id})"><div class="w-1 text-[10px] font-bold text-slate-300 leading-tight pt-1 capitalize">${(e.start.split('T')[1] || "00:00").slice(0,5)}</div><div class="flex-1 bg-white border border-slate-100 p-3 rounded-xl"><p class="text-xs font-bold text-slate-700">${e.title}</p></div></div>`).join('')}</div>` : `<p class="text-slate-300 text-sm italic">No events today.</p>`;
                     },
                     projects: async () => {
                         const projs = await db.projects.toArray();
-                        document.getElementById('widget-content-projects').innerHTML = projs.length ? `<div class="space-y-4">${projs.map(p => `<div class="p-4 bg-slate-50 border border-slate-100 rounded-2xl flex justify-between items-center"><span class="text-xs font-bold truncate pr-4">${p.name}</span> <span class="text-[10px] font-black bg-indigo-100 text-indigo-700 px-2 py-1 rounded">${p.progress}%</span></div>`).join('')}</div>` : '<p class="text-slate-300 text-sm italic">No active projects.</p>';
+                        document.getElementById('widget-content-projects').innerHTML = projs.length ? `<div class="space-y-4">${projs.map(p => `<div onclick="logic.showDetails('projects', ${p.id})" class="p-4 bg-slate-50 border border-slate-100 rounded-2xl flex justify-between items-center cursor-pointer hover:border-indigo-200 transition-all"><span class="text-xs font-bold truncate pr-4">${p.name}</span> <span class="text-[10px] font-black bg-indigo-100 text-indigo-700 px-2 py-1 rounded">${p.progress}%</span></div>`).join('')}</div>` : '<p class="text-slate-300 text-sm italic">No active projects.</p>';
                     },
                     school: async () => {
                         const classes = await db.school.limit(3).toArray();
@@ -579,7 +582,7 @@
                     const dateId = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
                     const dayEvents = events.filter(e => e.start.startsWith(dateId));
                     const isToday = dateId === today;
-                    html += `<div class="calendar-cell ${isToday ? 'today' : ''} flex flex-col group overflow-hidden"><div class="flex justify-between items-center mb-2"><span class="day-label text-xs font-bold text-slate-700">${day}</span></div><div class="flex-1 space-y-1">${dayEvents.map(e => `<div class="event-chip bg-indigo-600 text-white font-medium">${e.title}</div>`).join('')}</div></div>`;
+                    html += `<div class="calendar-cell ${isToday ? 'today' : ''} flex flex-col group overflow-hidden"><div class="flex justify-between items-center mb-2"><span class="day-label text-xs font-bold text-slate-700">${day}</span></div><div class="flex-1 space-y-1">${dayEvents.map(e => `<div class="event-chip bg-indigo-600 text-white font-medium" onclick="logic.showDetails('events', ${e.id})">${e.title}</div>`).join('')}</div></div>`;
                 }
                 return html;
             },
@@ -591,8 +594,8 @@
                 const grouped = { pending: tasks.filter(t => t.status !== 'done'), completed: tasks.filter(t => t.status === 'done') };
                 target.innerHTML = `
                     <div class="max-w-4xl mx-auto space-y-10"><section><h3 class="text-xs font-black uppercase text-slate-400 tracking-widest mb-6">Active Tasks</h3><div class="space-y-3">
-                    ${grouped.pending.map(t => `<div class="bg-white p-6 rounded-3xl border border-slate-200 flex items-center justify-between group"><div class="flex items-center gap-6"><input type="checkbox" onchange="logic.toggleTask(${t.id})" class="w-6 h-6"><div><p class="font-bold text-slate-800">${t.title}</p><p class="text-[10px] font-bold text-slate-400 mt-1 uppercase tracking-tighter">Due: ${t.dueDate || 'No Date'} • Priority: ${PRIORITY_LABELS[t.priority] || 'Medium'}</p></div></div><button onclick="logic.deleteData('tasks', ${t.id})" class="text-slate-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all"><i data-lucide="trash-2" class="w-5 h-5"></i></button></div>`).join('') || `<p class="text-slate-400 italic py-10 text-center">No pending tasks.</p>`}
-                    </div></section><section class="opacity-50"><h3 class="text-xs font-black uppercase text-slate-400 tracking-widest mb-6">Completed</h3><div class="space-y-2">${grouped.completed.map(t => `<div class="bg-slate-50 p-4 rounded-2xl border border-slate-100 flex items-center gap-4"><i data-lucide="check" class="w-4 h-4 text-green-500"></i> <span class="text-sm font-medium line-through">${t.title}</span></div>`).join('')}</div></section></div>
+                    ${grouped.pending.map(t => `<div class="bg-white p-6 rounded-3xl border border-slate-200 flex items-center justify-between group"><div class="flex items-center gap-6"><input type="checkbox" onchange="logic.toggleTask(${t.id})" class="w-6 h-6"><div><p class="font-bold text-slate-800 cursor-pointer hover:underline" onclick="logic.showDetails('tasks', ${t.id})">${t.title}</p><p class="text-[10px] font-bold text-slate-400 mt-1 uppercase tracking-tighter">Due: ${t.dueDate || 'No Date'} • Priority: ${PRIORITY_LABELS[t.priority] || 'Medium'}</p></div></div><button onclick="logic.deleteData('tasks', ${t.id})" class="text-slate-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all"><i data-lucide="trash-2" class="w-5 h-5"></i></button></div>`).join('') || `<p class="text-slate-400 italic py-10 text-center">No pending tasks.</p>`}
+                    </div></section><section class="opacity-50"><h3 class="text-xs font-black uppercase text-slate-400 tracking-widest mb-6">Completed</h3><div class="space-y-2">${grouped.completed.map(t => `<div class="bg-slate-50 p-4 rounded-2xl border border-slate-100 flex items-center gap-4"><i data-lucide="check" class="w-4 h-4 text-green-500"></i> <span class="text-sm font-medium line-through cursor-pointer" onclick="logic.showDetails('tasks', ${t.id})">${t.title}</span></div>`).join('')}</div></section></div>
                 `;
                 lucide.createIcons();
             },
@@ -608,7 +611,7 @@
 
             projects: async (target) => {
                 const projs = await db.projects.toArray();
-                target.innerHTML = `<div class="grid grid-cols-1 md:grid-cols-2 gap-8">${projs.map(p => `<div class="bg-white p-8 rounded-3xl shadow-sm border border-slate-200 flex flex-col"><h4 class="text-xl font-bold mb-6">${p.name}</h4><div class="mt-auto"><div class="flex justify-between text-[10px] font-black text-slate-400 uppercase mb-2"><span>Completion</span><span>${p.progress}%</span></div><div class="w-full h-2 bg-slate-100 rounded-full overflow-hidden"><div class="bg-indigo-600 h-full transition-all" style="width: ${p.progress}%"></div></div><div class="flex gap-2 mt-8"><button onclick="logic.updateProjectProgress(${p.id}, 10)" class="flex-1 py-3 text-xs font-bold bg-slate-50 border border-slate-100 rounded-xl hover:bg-slate-100">+10%</button><button onclick="logic.deleteData('projects', ${p.id})" class="p-3 text-red-500 hover:bg-red-50 rounded-xl transition-all"><i data-lucide="trash-2" class="w-4 h-4"></i></button></div></div></div>`).join('') || '<p class="col-span-full text-center text-slate-400 italic py-10">No active projects yet.</p>'}</div>`;
+                target.innerHTML = `<div class="grid grid-cols-1 md:grid-cols-2 gap-8">${projs.map(p => `<div class="bg-white p-8 rounded-3xl shadow-sm border border-slate-200 flex flex-col cursor-pointer transition-transform hover:scale-[1.01]" onclick="logic.showDetails('projects', ${p.id})"><h4 class="text-xl font-bold mb-6">${p.name}</h4><div class="mt-auto"><div class="flex justify-between text-[10px] font-black text-slate-400 uppercase mb-2"><span>Completion</span><span>${p.progress}%</span></div><div class="w-full h-2 bg-slate-100 rounded-full overflow-hidden"><div class="bg-indigo-600 h-full transition-all" style="width: ${p.progress}%"></div></div><div class="flex gap-2 mt-8" onclick="event.stopPropagation()"><button onclick="logic.updateProjectProgress(${p.id}, 10)" class="flex-1 py-3 text-xs font-bold bg-slate-50 border border-slate-100 rounded-xl hover:bg-slate-100">+10%</button><button onclick="logic.deleteData('projects', ${p.id})" class="p-3 text-red-500 hover:bg-red-50 rounded-xl transition-all"><i data-lucide="trash-2" class="w-4 h-4"></i></button></div></div></div>`).join('') || '<p class="col-span-full text-center text-slate-400 italic py-10">No active projects yet.</p>'}</div>`;
                 lucide.createIcons();
             },
 
@@ -652,14 +655,14 @@
                         <section class="space-y-4">
                             <h3 class="text-xs font-black uppercase text-slate-400 tracking-widest">School Assignments</h3>
                             <div class="space-y-2">
-                                ${tasks.filter(t => t.classId && t.classId !== "").map(t => `<div class="p-4 bg-white border border-slate-200 rounded-2xl flex justify-between items-center group">
+                                ${tasks.filter(t => t.classId && t.classId !== "").map(t => `<div class="p-4 bg-white border border-slate-200 rounded-2xl flex justify-between items-center group cursor-pointer hover:border-indigo-300" onclick="logic.showDetails('tasks', ${t.id})">
                                     <div class="flex items-center gap-3">
-                                        <input type="checkbox" onchange="logic.toggleTask(${t.id})" ${t.status === 'done' ? 'checked' : ''}>
+                                        <input type="checkbox" onchange="event.stopPropagation(); logic.toggleTask(${t.id})" ${t.status === 'done' ? 'checked' : ''}>
                                         <span class="text-sm font-bold text-slate-700 ${t.status === 'done' ? 'line-through opacity-40' : ''}">${t.title}</span>
                                     </div>
                                     <div class="flex items-center gap-4">
                                         <span class="text-[10px] font-black uppercase text-slate-300">${classes.find(c => c.id == t.classId)?.className || 'Linked'}</span>
-                                        <button onclick="logic.deleteData('tasks', ${t.id})" class="text-slate-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
+                                        <button onclick="event.stopPropagation(); logic.deleteData('tasks', ${t.id})" class="text-slate-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
                                     </div>
                                 </div>`).join('') || '<p class="text-slate-400 italic">No homework linked to classes. Click "New Assignment" to add some!</p>'}
                             </div>
@@ -698,12 +701,45 @@
                 e.preventDefault();
                 const fd = new FormData(e.target);
                 const data = Object.fromEntries(fd.entries());
-                if(key === 'tasks') { data.status = 'pending'; data.createdAt = Date.now(); }
+                data.createdAt = Date.now();
+                if(key === 'tasks') { data.status = 'pending'; }
                 if(key === 'projects') { data.progress = 0; data.status = 'active'; }
                 if(key === 'habits') { data.streak = 0; data.logs = []; }
                 await db[key].add(data);
                 ui.modal.close();
                 router.load(state.currentView);
+            },
+
+            showDetails: async (table, id) => {
+                const item = await db[table].get(id);
+                if (!item) return;
+
+                let content = `<div class="space-y-8">`;
+                
+                // Header Details
+                content += `
+                    <div class="grid grid-cols-2 gap-6 bg-white p-6 rounded-3xl border border-slate-100">
+                        <div><p class="text-[10px] font-black uppercase text-slate-400 tracking-widest mb-1">Status</p><p class="font-bold text-indigo-600 capitalize">${item.status || 'Active'}</p></div>
+                        ${item.priority ? `<div><p class="text-[10px] font-black uppercase text-slate-400 tracking-widest mb-1">Priority</p><p class="font-bold text-slate-800">${PRIORITY_LABELS[item.priority]}</p></div>` : ''}
+                        ${item.dueDate || item.deadline ? `<div><p class="text-[10px] font-black uppercase text-slate-400 tracking-widest mb-1">Due Date</p><p class="font-bold text-slate-800">${item.dueDate || item.deadline}</p></div>` : ''}
+                        ${item.start ? `<div><p class="text-[10px] font-black uppercase text-slate-400 tracking-widest mb-1">Scheduled</p><p class="font-bold text-slate-800">${new Date(item.start).toLocaleString()}</p></div>` : ''}
+                        <div><p class="text-[10px] font-black uppercase text-slate-400 tracking-widest mb-1">Created At</p><p class="font-bold text-slate-800">${new Date(item.createdAt).toLocaleDateString()}</p></div>
+                    </div>
+                `;
+
+                // Description section
+                content += `
+                    <div class="space-y-3">
+                        <p class="text-[10px] font-black uppercase text-slate-400 tracking-widest">Description & Notes</p>
+                        <div class="bg-slate-50 p-6 rounded-3xl border border-slate-100 min-h-[120px]">
+                            <p class="text-sm text-slate-600 leading-relaxed whitespace-pre-wrap">${item.description || 'No description provided.'}</p>
+                        </div>
+                    </div>
+                `;
+
+                content += `</div>`;
+
+                ui.modal.open(item.title || item.name, "Detailed Overview", content);
             },
 
             toggleTask: async (id) => {
