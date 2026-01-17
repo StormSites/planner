@@ -144,6 +144,11 @@
         @keyframes zoomIn { from { transform: scale(0.95); opacity: 0; } to { transform: scale(1); opacity: 1; } }
         .animate-in { animation: fadeIn 0.2s ease-out; }
         .zoom-in { animation: zoomIn 0.2s ease-out; }
+
+        /* ADDED: Priority Colors */
+        .prio-3 { border-left: 4px solid #ef4444 !important; } 
+        .prio-2 { border-left: 4px solid #f59e0b !important; } 
+        .prio-1 { border-left: 4px solid #3b82f6 !important; }
     </style>
 </head>
 <body class="overflow-hidden">
@@ -176,12 +181,20 @@
         <!-- Content Area -->
         <main class="flex-1 flex flex-col min-w-0 bg-slate-50">
             <header class="h-20 bg-white border-b px-10 flex items-center justify-between shrink-0 z-10">
-                <div class="flex flex-col">
-                    <div class="flex items-center">
-                        <h2 id="view-title" class="text-xl font-bold text-slate-800">Command Center</h2>
-                        <div id="tab-action-container"></div>
+                <div class="flex items-center gap-8 flex-1">
+                    <div class="flex flex-col min-w-[200px]">
+                        <div class="flex items-center">
+                            <h2 id="view-title" class="text-xl font-bold text-slate-800">Command Center</h2>
+                            <div id="tab-action-container"></div>
+                        </div>
+                        <p id="view-subtitle" class="text-xs text-slate-400 font-medium"></p>
                     </div>
-                    <p id="view-subtitle" class="text-xs text-slate-400 font-medium"></p>
+
+                    <!-- ADDED: Global Search Input -->
+                    <div class="relative w-full max-w-md hidden md:block">
+                        <i data-lucide="search" class="absolute left-4 top-3 w-4 h-4 text-slate-400"></i>
+                        <input type="text" id="global-search" oninput="logic.search(this.value)" placeholder="Search tasks, projects, etc..." class="w-full bg-slate-100 border-none rounded-2xl py-2.5 pl-11 pr-4 text-sm focus:ring-2 focus:ring-indigo-500 outline-none transition-all">
+                    </div>
                 </div>
 
                 <div class="flex items-center gap-6">
@@ -209,7 +222,11 @@
                     <h3 id="modal-title" class="text-2xl font-bold">Quick Add</h3>
                     <p id="modal-subtitle" class="text-sm text-slate-400 font-medium"></p>
                 </div>
-                <button onclick="ui.modal.close()" class="p-3 hover:bg-slate-100 rounded-full transition-colors text-slate-400"><i data-lucide="x" class="w-6 h-6"></i></button>
+                <div class="flex items-center gap-2">
+                    <!-- ADDED: Modal Action Slot (for Edit button) -->
+                    <div id="modal-actions"></div>
+                    <button onclick="ui.modal.close()" class="p-3 hover:bg-slate-100 rounded-full transition-colors text-slate-400"><i data-lucide="x" class="w-6 h-6"></i></button>
+                </div>
             </div>
             <div id="modal-body" class="p-8 overflow-y-auto bg-slate-50/30">
                 <!-- Form content -->
@@ -223,11 +240,11 @@
          */
         const db = new Dexie("PlannerCompleteStorage");
         db.version(1).stores({
-            tasks: '++id, title, status, priority, dueDate, section, projectId, classId, isRecurring',
-            projects: '++id, name, status, progress, deadline',
+            tasks: '++id, title, status, priority, dueDate, section, projectId, classId, isRecurring, description',
+            projects: '++id, name, status, progress, deadline, description',
             school: '++id, className, instructor, semester',
             assignments: '++id, title, classId, dueDate, status, weight',
-            events: '++id, title, start, end, location, category',
+            events: '++id, title, start, end, location, category, description',
             habits: '++id, name, streak, logs, goal',
             extra: '++id, name, role, hours',
             settings: 'key, value',
@@ -257,7 +274,9 @@
         const state = {
             currentView: 'dashboard',
             currentCalendarDate: new Date(),
-            dashboardLayout: JSON.parse(localStorage.getItem('dashboard_layout')) || ['tasks', 'schedule', 'habits', 'projects', 'school', 'extra'],
+            dashboardLayout: JSON.parse(localStorage.getItem('dashboard_layout')) || ['focus', 'tasks', 'schedule', 'habits', 'projects', 'school', 'extra'], // Added 'focus'
+            searchQuery: '', // ADDED
+            pomodoro: { time: 1500, active: false, interval: null }, // ADDED
             config: {
                 ...defaultConfig,
                 ...localConfig,
@@ -325,10 +344,11 @@
             },
 
             modal: {
-                open: (title, subtitle, bodyHtml) => {
+                open: (title, subtitle, bodyHtml, actionsHtml = '') => { // Updated signature
                     document.getElementById('modal-title').innerText = title;
                     document.getElementById('modal-subtitle').innerText = subtitle;
                     document.getElementById('modal-body').innerHTML = bodyHtml;
+                    document.getElementById('modal-actions').innerHTML = actionsHtml; // ADDED
                     document.getElementById('modal-overlay').classList.remove('hidden');
                     lucide.createIcons();
                 },
@@ -358,26 +378,31 @@
                     html += `</div>`;
                     ui.modal.open("New Entry", "Choose what you want to add to your planner", html);
                 },
-                renderForm: async (key) => {
-                    let formHtml = `<form onsubmit="logic.handleForm(event, '${key === 'assignment' ? 'tasks' : key}')" class="space-y-6">`;
+                renderForm: async (key, editId = null) => { // ADDED editId
+                    const editData = editId ? await db[key==='assignment'?'tasks':key].get(editId) : null;
+                    let formHtml = `<form onsubmit="logic.handleForm(event, '${key === 'assignment' ? 'tasks' : key}', ${editId})" class="space-y-6">`;
                     switch(key) {
                         case 'assignment':
                         case 'tasks':
                             const schoolClasses = await db.school.toArray();
                             formHtml += `
-                                <div><label class="block text-xs font-black uppercase text-slate-400 mb-2">Title</label><input name="title" required class="w-full p-4 bg-white border border-slate-200 rounded-2xl outline-none focus:ring-2 focus:ring-indigo-500" placeholder="${key === 'assignment' ? 'e.g. History Essay' : 'e.g. Finish quarterly report'}"></div>
+                                <div><label class="block text-xs font-black uppercase text-slate-400 mb-2">Title</label><input name="title" required value="${editData?.title || ''}" class="w-full p-4 bg-white border border-slate-200 rounded-2xl outline-none focus:ring-2 focus:ring-indigo-500" placeholder="${key === 'assignment' ? 'e.g. History Essay' : 'e.g. Finish quarterly report'}"></div>
                                 <div class="grid grid-cols-2 gap-4">
                                     <div><label class="block text-xs font-black uppercase text-slate-400 mb-2">Priority</label>
-                                        <select name="priority" class="w-full p-4 bg-white border border-slate-200 rounded-2xl"><option value="1">Low</option><option value="2" selected>Medium</option><option value="3">High</option></select>
+                                        <select name="priority" class="w-full p-4 bg-white border border-slate-200 rounded-2xl">
+                                            <option value="1" ${editData?.priority==1?'selected':''}>Low</option>
+                                            <option value="2" ${!editData||editData.priority==2?'selected':''}>Medium</option>
+                                            <option value="3" ${editData?.priority==3?'selected':''}>High</option>
+                                        </select>
                                     </div>
-                                    <div><label class="block text-xs font-black uppercase text-slate-400 mb-2">Due Date</label><input type="date" name="dueDate" class="w-full p-4 bg-white border border-slate-200 rounded-2xl" value="${new Date().toISOString().split('T')[0]}"></div>
+                                    <div><label class="block text-xs font-black uppercase text-slate-400 mb-2">Due Date</label><input type="date" name="dueDate" class="w-full p-4 bg-white border border-slate-200 rounded-2xl" value="${editData?.dueDate || new Date().toISOString().split('T')[0]}"></div>
                                 </div>
-                                <div><label class="block text-xs font-black uppercase text-slate-400 mb-2">Description</label><textarea name="description" class="w-full p-4 bg-white border border-slate-200 rounded-2xl outline-none focus:ring-2 focus:ring-indigo-500 h-24" placeholder="Add more details..."></textarea></div>
+                                <div><label class="block text-xs font-black uppercase text-slate-400 mb-2">Description</label><textarea name="description" class="w-full p-4 bg-white border border-slate-200 rounded-2xl outline-none focus:ring-2 focus:ring-indigo-500 h-24" placeholder="Add more details...">${editData?.description || ''}</textarea></div>
                                 <div>
                                     <label class="block text-xs font-black uppercase text-slate-400 mb-2">Link to Class (Required for Homework)</label>
                                     <select name="classId" class="w-full p-4 bg-white border border-slate-200 rounded-2xl" ${key === 'assignment' ? 'required' : ''}>
                                         <option value="">${key === 'assignment' ? '-- Select a Class --' : 'No Class'}</option>
-                                        ${schoolClasses.map(c => `<option value="${c.id}">${c.className}</option>`).join('')}
+                                        ${schoolClasses.map(c => `<option value="${c.id}" ${editData?.classId==c.id?'selected':''}>${c.className}</option>`).join('')}
                                     </select>
                                     ${schoolClasses.length === 0 ? '<p class="text-[10px] text-red-500 mt-2 font-bold uppercase">Add classes in Education tab first!</p>' : ''}
                                 </div>
@@ -385,44 +410,41 @@
                             break;
                         case 'events':
                             formHtml += `
-                                <div><label class="block text-xs font-black uppercase text-slate-400 mb-2">Event Title</label><input name="title" required class="w-full p-4 bg-white border border-slate-200 rounded-2xl outline-none focus:ring-2 focus:ring-indigo-500"></div>
+                                <div><label class="block text-xs font-black uppercase text-slate-400 mb-2">Event Title</label><input name="title" required value="${editData?.title || ''}" class="w-full p-4 bg-white border border-slate-200 rounded-2xl outline-none focus:ring-2 focus:ring-indigo-500"></div>
                                 <div class="grid grid-cols-2 gap-4">
-                                    <div><label class="block text-xs font-black uppercase text-slate-400 mb-2">Start</label><input type="datetime-local" name="start" required class="w-full p-4 bg-white border border-slate-200 rounded-2xl" value="${new Date().toISOString().slice(0, 16)}"></div>
-                                    <div><label class="block text-xs font-black uppercase text-slate-400 mb-2">End</label><input type="datetime-local" name="end" required class="w-full p-4 bg-white border border-slate-200 rounded-2xl" value="${new Date().toISOString().slice(0, 16)}"></div>
+                                    <div><label class="block text-xs font-black uppercase text-slate-400 mb-2">Start</label><input type="datetime-local" name="start" required class="w-full p-4 bg-white border border-slate-200 rounded-2xl" value="${editData?.start || new Date().toISOString().slice(0, 16)}"></div>
+                                    <div><label class="block text-xs font-black uppercase text-slate-400 mb-2">End</label><input type="datetime-local" name="end" required class="w-full p-4 bg-white border border-slate-200 rounded-2xl" value="${editData?.end || new Date().toISOString().slice(0, 16)}"></div>
                                 </div>
-                                <div><label class="block text-xs font-black uppercase text-slate-400 mb-2">Description</label><textarea name="description" class="w-full p-4 bg-white border border-slate-200 rounded-2xl outline-none focus:ring-2 focus:ring-indigo-500 h-24" placeholder="Location, notes, etc..."></textarea></div>
+                                <div><label class="block text-xs font-black uppercase text-slate-400 mb-2">Description</label><textarea name="description" class="w-full p-4 bg-white border border-slate-200 rounded-2xl outline-none focus:ring-2 focus:ring-indigo-500 h-24" placeholder="Location, notes, etc...">${editData?.description || ''}</textarea></div>
                             `;
                             break;
                         case 'projects':
                             formHtml += `
-                                <div><label class="block text-xs font-black uppercase text-slate-400 mb-2">Project Name</label><input name="name" required class="w-full p-4 bg-white border border-slate-200 rounded-2xl outline-none focus:ring-2 focus:ring-indigo-500"></div>
-                                <div><label class="block text-xs font-black uppercase text-slate-400 mb-2">Deadline</label><input type="date" name="deadline" class="w-full p-4 bg-white border border-slate-200 rounded-2xl" value="${new Date().toISOString().split('T')[0]}"></div>
-                                <div><label class="block text-xs font-black uppercase text-slate-400 mb-2">Description</label><textarea name="description" class="w-full p-4 bg-white border border-slate-200 rounded-2xl outline-none focus:ring-2 focus:ring-indigo-500 h-24" placeholder="What is this project about?"></textarea></div>
+                                <div><label class="block text-xs font-black uppercase text-slate-400 mb-2">Project Name</label><input name="name" required value="${editData?.name || ''}" class="w-full p-4 bg-white border border-slate-200 rounded-2xl outline-none focus:ring-2 focus:ring-indigo-500"></div>
+                                <div><label class="block text-xs font-black uppercase text-slate-400 mb-2">Deadline</label><input type="date" name="deadline" class="w-full p-4 bg-white border border-slate-200 rounded-2xl" value="${editData?.deadline || new Date().toISOString().split('T')[0]}"></div>
+                                <div><label class="block text-xs font-black uppercase text-slate-400 mb-2">Description</label><textarea name="description" class="w-full p-4 bg-white border border-slate-200 rounded-2xl outline-none focus:ring-2 focus:ring-indigo-500 h-24" placeholder="What is this project about?">${editData?.description || ''}</textarea></div>
                             `;
                             break;
                         case 'habits':
                             formHtml += `
-                                <div><label class="block text-xs font-black uppercase text-slate-400 mb-2">Habit Action</label><input name="name" required placeholder="e.g. Meditate" class="w-full p-4 bg-white border border-slate-200 rounded-2xl outline-none focus:ring-2 focus:ring-indigo-500"></div>
+                                <div><label class="block text-xs font-black uppercase text-slate-400 mb-2">Habit Action</label><input name="name" required value="${editData?.name || ''}" placeholder="e.g. Meditate" class="w-full p-4 bg-white border border-slate-200 rounded-2xl outline-none focus:ring-2 focus:ring-indigo-500"></div>
                             `;
                             break;
                         case 'school':
                             formHtml += `
-                                <div><label class="block text-xs font-black uppercase text-slate-400 mb-2">Class Name</label><input name="className" required placeholder="e.g. Physics 101" class="w-full p-4 bg-white border border-slate-200 rounded-2xl outline-none focus:ring-2 focus:ring-indigo-500"></div>
-                                <div><label class="block text-xs font-black uppercase text-slate-400 mb-2">Instructor</label><input name="instructor" class="w-full p-4 bg-white border border-slate-200 rounded-2xl outline-none"></div>
+                                <div><label class="block text-xs font-black uppercase text-slate-400 mb-2">Class Name</label><input name="className" required value="${editData?.className || ''}" placeholder="e.g. Physics 101" class="w-full p-4 bg-white border border-slate-200 rounded-2xl outline-none focus:ring-2 focus:ring-indigo-500"></div>
+                                <div><label class="block text-xs font-black uppercase text-slate-400 mb-2">Instructor</label><input name="instructor" value="${editData?.instructor || ''}" class="w-full p-4 bg-white border border-slate-200 rounded-2xl outline-none"></div>
                             `;
                             break;
                         case 'extra':
                             formHtml += `
-                                <div><label class="block text-xs font-black uppercase text-slate-400 mb-2">Activity Name</label><input name="name" required class="w-full p-4 bg-white border border-slate-200 rounded-2xl outline-none focus:ring-2 focus:ring-indigo-500"></div>
+                                <div><label class="block text-xs font-black uppercase text-slate-400 mb-2">Activity Name</label><input name="name" required value="${editData?.name || ''}" class="w-full p-4 bg-white border border-slate-200 rounded-2xl outline-none focus:ring-2 focus:ring-indigo-500"></div>
                             `;
                             break;
                     }
-                    formHtml += `<button type="submit" class="w-full py-4 bg-indigo-600 text-white font-bold rounded-2xl shadow-xl shadow-indigo-100 hover:scale-[1.02] active:scale-95 transition-all mt-4">Save Entry</button></form>`;
+                    formHtml += `<button type="submit" class="w-full py-4 bg-indigo-600 text-white font-bold rounded-2xl shadow-xl mt-4">${editId ? 'Update' : 'Save'} Entry</button></form>`;
                     document.getElementById('modal-body').innerHTML = formHtml;
-                    if(document.getElementById('modal-overlay').classList.contains('hidden')) {
-                        ui.modal.open(`Add ${key.charAt(0).toUpperCase() + key.slice(1)}`, `Create a new entry for ${key}`, formHtml);
-                    }
-                    lucide.createIcons();
+                    ui.modal.open(`${editId?'Edit':'Add'} ${key.charAt(0).toUpperCase() + key.slice(1)}`, `${editId?'Modify existing':'Create new'} details`, formHtml);
                 }
             }
         };
@@ -513,9 +535,20 @@
                     }
                 });
                 const loaders = {
+                    focus: () => { // ADDED Focus Widget
+                        document.getElementById('widget-content-focus').innerHTML = `
+                            <div class="flex flex-col items-center justify-center h-full gap-4">
+                                <div id="pomo-timer" class="text-5xl font-black text-slate-800">${Math.floor(state.pomodoro.time/60)}:${(state.pomodoro.time%60).toString().padStart(2, '0')}</div>
+                                <div class="flex gap-2">
+                                    <button onclick="logic.togglePomodoro()" class="px-6 py-2 bg-indigo-600 text-white text-xs font-bold rounded-full">${state.pomodoro.active?'Pause':'Start Focus'}</button>
+                                    <button onclick="state.pomodoro.time = 1500; router.load('dashboard')" class="p-2 border rounded-full text-slate-300"><i data-lucide="refresh-cw" class="w-4 h-4"></i></button>
+                                </div>
+                            </div>
+                        `;
+                    },
                     tasks: async () => {
                         const tasks = await db.tasks.where('status').notEqual('done').limit(5).toArray();
-                        document.getElementById('widget-content-tasks').innerHTML = tasks.length ? `<div class="space-y-4">${tasks.map(t => `<div class="flex items-center gap-3"><input type="checkbox" onchange="logic.toggleTask(${t.id})" class="rounded-full"> <span onclick="logic.showDetails('tasks', ${t.id})" class="text-sm font-medium text-slate-600 cursor-pointer hover:underline">${t.title}</span></div>`).join('')}</div>` : `<p class="text-slate-300 text-sm italic">No pending tasks.</p>`;
+                        document.getElementById('widget-content-tasks').innerHTML = tasks.length ? `<div class="space-y-4">${tasks.map(t => `<div onclick="logic.showDetails('tasks', ${t.id})" class="flex items-center gap-3 p-2 hover:bg-slate-50 rounded-xl cursor-pointer"><div class="w-1.5 h-1.5 rounded-full ${t.priority==3?'bg-red-500':t.priority==2?'bg-amber-500':'bg-blue-500'}"></div> <span class="text-sm font-medium text-slate-600 truncate">${t.title}</span></div>`).join('')}</div>` : `<p class="text-slate-300 text-sm italic">No pending tasks.</p>`;
                     },
                     habits: async () => {
                         const habits = await db.habits.toArray();
@@ -590,11 +623,13 @@
             changeMonth: (offset) => { state.currentCalendarDate.setMonth(state.currentCalendarDate.getMonth() + offset); router.load('events'); },
 
             tasks: async (target) => {
-                const tasks = await db.tasks.toArray();
+                let tasks = await db.tasks.toArray();
+                if (state.searchQuery) tasks = tasks.filter(t => t.title.toLowerCase().includes(state.searchQuery)); // Search filtering
+                
                 const grouped = { pending: tasks.filter(t => t.status !== 'done'), completed: tasks.filter(t => t.status === 'done') };
                 target.innerHTML = `
                     <div class="max-w-4xl mx-auto space-y-10"><section><h3 class="text-xs font-black uppercase text-slate-400 tracking-widest mb-6">Active Tasks</h3><div class="space-y-3">
-                    ${grouped.pending.map(t => `<div class="bg-white p-6 rounded-3xl border border-slate-200 flex items-center justify-between group"><div class="flex items-center gap-6"><input type="checkbox" onchange="logic.toggleTask(${t.id})" class="w-6 h-6"><div><p class="font-bold text-slate-800 cursor-pointer hover:underline" onclick="logic.showDetails('tasks', ${t.id})">${t.title}</p><p class="text-[10px] font-bold text-slate-400 mt-1 uppercase tracking-tighter">Due: ${t.dueDate || 'No Date'} • Priority: ${PRIORITY_LABELS[t.priority] || 'Medium'}</p></div></div><button onclick="logic.deleteData('tasks', ${t.id})" class="text-slate-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all"><i data-lucide="trash-2" class="w-5 h-5"></i></button></div>`).join('') || `<p class="text-slate-400 italic py-10 text-center">No pending tasks.</p>`}
+                    ${grouped.pending.map(t => `<div class="bg-white p-6 rounded-3xl border border-slate-200 flex items-center justify-between group prio-${t.priority}"><div class="flex items-center gap-6"><input type="checkbox" onchange="logic.toggleTask(${t.id})" class="w-6 h-6"><div><p class="font-bold text-slate-800 cursor-pointer hover:underline" onclick="logic.showDetails('tasks', ${t.id})">${t.title}</p><p class="text-[10px] font-bold text-slate-400 mt-1 uppercase tracking-tighter">Due: ${t.dueDate || 'No Date'} • Priority: ${PRIORITY_LABELS[t.priority] || 'Medium'}</p></div></div><button onclick="logic.deleteData('tasks', ${t.id})" class="text-slate-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all"><i data-lucide="trash-2" class="w-5 h-5"></i></button></div>`).join('') || `<p class="text-slate-400 italic py-10 text-center">No pending tasks.</p>`}
                     </div></section><section class="opacity-50"><h3 class="text-xs font-black uppercase text-slate-400 tracking-widest mb-6">Completed</h3><div class="space-y-2">${grouped.completed.map(t => `<div class="bg-slate-50 p-4 rounded-2xl border border-slate-100 flex items-center gap-4"><i data-lucide="check" class="w-4 h-4 text-green-500"></i> <span class="text-sm font-medium line-through cursor-pointer" onclick="logic.showDetails('tasks', ${t.id})">${t.title}</span></div>`).join('')}</div></section></div>
                 `;
                 lucide.createIcons();
@@ -610,7 +645,9 @@
             },
 
             projects: async (target) => {
-                const projs = await db.projects.toArray();
+                let projs = await db.projects.toArray();
+                if (state.searchQuery) projs = projs.filter(p => p.name.toLowerCase().includes(state.searchQuery));
+                
                 target.innerHTML = `<div class="grid grid-cols-1 md:grid-cols-2 gap-8">${projs.map(p => `<div class="bg-white p-8 rounded-3xl shadow-sm border border-slate-200 flex flex-col cursor-pointer transition-transform hover:scale-[1.01]" onclick="logic.showDetails('projects', ${p.id})"><h4 class="text-xl font-bold mb-6">${p.name}</h4><div class="mt-auto"><div class="flex justify-between text-[10px] font-black text-slate-400 uppercase mb-2"><span>Completion</span><span>${p.progress}%</span></div><div class="w-full h-2 bg-slate-100 rounded-full overflow-hidden"><div class="bg-indigo-600 h-full transition-all" style="width: ${p.progress}%"></div></div><div class="flex gap-2 mt-8" onclick="event.stopPropagation()"><button onclick="logic.updateProjectProgress(${p.id}, 10)" class="flex-1 py-3 text-xs font-bold bg-slate-50 border border-slate-100 rounded-xl hover:bg-slate-100">+10%</button><button onclick="logic.deleteData('projects', ${p.id})" class="p-3 text-red-500 hover:bg-red-50 rounded-xl transition-all"><i data-lucide="trash-2" class="w-4 h-4"></i></button></div></div></div>`).join('') || '<p class="col-span-full text-center text-slate-400 italic py-10">No active projects yet.</p>'}</div>`;
                 lucide.createIcons();
             },
@@ -697,15 +734,41 @@
          * 7. CORE BUSINESS LOGIC 
          */
         const logic = {
-            handleForm: async (e, key) => {
+            search: (val) => { // ADDED
+                state.searchQuery = val.toLowerCase();
+                if (state.currentView !== 'dashboard') router.load(state.currentView);
+            },
+
+            togglePomodoro: () => { // ADDED
+                if (state.pomodoro.active) {
+                    clearInterval(state.pomodoro.interval);
+                    state.pomodoro.active = false;
+                } else {
+                    state.pomodoro.active = true;
+                    state.pomodoro.interval = setInterval(() => {
+                        state.pomodoro.time--;
+                        if(state.pomodoro.time <= 0) logic.togglePomodoro();
+                        if(document.getElementById('pomo-timer')) document.getElementById('pomo-timer').innerText = `${Math.floor(state.pomodoro.time/60)}:${(state.pomodoro.time%60).toString().padStart(2, '0')}`;
+                    }, 1000);
+                }
+                router.load('dashboard');
+            },
+
+            handleForm: async (e, key, id = null) => { // Updated to handle Updates
                 e.preventDefault();
                 const fd = new FormData(e.target);
                 const data = Object.fromEntries(fd.entries());
-                data.createdAt = Date.now();
-                if(key === 'tasks') { data.status = 'pending'; }
-                if(key === 'projects') { data.progress = 0; data.status = 'active'; }
-                if(key === 'habits') { data.streak = 0; data.logs = []; }
-                await db[key].add(data);
+                
+                if (id) {
+                    await db[key].update(id, data);
+                } else {
+                    data.createdAt = Date.now();
+                    if(key === 'tasks') { data.status = 'pending'; }
+                    if(key === 'projects') { data.progress = 0; data.status = 'active'; }
+                    if(key === 'habits') { data.streak = 0; data.logs = []; }
+                    await db[key].add(data);
+                }
+                
                 ui.modal.close();
                 router.load(state.currentView);
             },
@@ -715,8 +778,6 @@
                 if (!item) return;
 
                 let content = `<div class="space-y-8">`;
-                
-                // Header Details
                 content += `
                     <div class="grid grid-cols-2 gap-6 bg-white p-6 rounded-3xl border border-slate-100">
                         <div><p class="text-[10px] font-black uppercase text-slate-400 tracking-widest mb-1">Status</p><p class="font-bold text-indigo-600 capitalize">${item.status || 'Active'}</p></div>
@@ -727,7 +788,6 @@
                     </div>
                 `;
 
-                // Description section
                 content += `
                     <div class="space-y-3">
                         <p class="text-[10px] font-black uppercase text-slate-400 tracking-widest">Description & Notes</p>
@@ -736,10 +796,11 @@
                         </div>
                     </div>
                 `;
-
                 content += `</div>`;
 
-                ui.modal.open(item.title || item.name, "Detailed Overview", content);
+                // ADDED: Edit Button Action
+                const actionsHtml = `<button onclick="ui.modal.renderForm('${table}', ${id})" class="px-4 py-2 bg-slate-100 font-bold text-xs rounded-xl hover:bg-slate-200 transition-all">Edit Item</button>`;
+                ui.modal.open(item.title || item.name, "Detailed Overview", content, actionsHtml);
             },
 
             toggleTask: async (id) => {
